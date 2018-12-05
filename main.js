@@ -1,5 +1,5 @@
 
-let grid = [
+let griddata = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -28,14 +28,19 @@ let cam;
  */
 let dirs;
 
+/**
+ * @type {Grid}
+ */
+let grid;
+
 let scalef = 1;
 let raywidth = 2; // alters number of rays used/"resolution" of walls
 
 function setup() {
     createCanvas(windowWidth, windowHeight - 15);
 
-    let gw = grid[0].length;
-    let gh = grid.length;
+    let gw = 25;//griddata[0].length;
+    let gh = 25;//griddata.length;
 
     if (width > height) {
         scalef = Math.floor(height / gh);
@@ -43,7 +48,7 @@ function setup() {
         scalef = Math.floor(width / gw);
     }
 
-    grid = generateGrid(gw, gh);
+    grid = new Grid(gw, gh);
     // scalef *= Math.min(width, height) / 900;
     dirs = new Array(Math.floor(width / raywidth));
     let pos = findPlaceNotInWall(grid);
@@ -90,9 +95,9 @@ function draw() {
             strokeWeight(0.01);
             stroke(255, 0, 0);
 
-            for (let y = 0; y < grid.length; y++) {
-                for (let x = 0; x < grid[y].length; x++) {
-                    if (grid[y][x] == 0) {
+            for (let y = 0; y < grid.height; y++) {
+                for (let x = 0; x < grid.width; x++) {
+                    if (grid.cell(x,y) == 0) {
                         noFill();
                     } else {
                         fill(255, 0, 0);
@@ -205,8 +210,12 @@ class Camera {
         return directions;
     }
 
+    /**
+     * 
+     * @param {Grid} grid 
+     */
     correctWallViolation(grid) {
-        let cell = getCell(this.pos, grid);
+        let cell = grid.getCell(this.pos);
         if (cell != 0) {
             // inside a wall
             this.pos.x = this.prevPos.x;
@@ -228,12 +237,12 @@ class Hit {
  * @param {Hit} hit
  * @param {p5.Vector} dir 
  * @param {p5.Vector} pos 
- * @param {number[][]} grid 
+ * @param {Grid} grid 
  */
 function marchRay(hit, pos, dir, grid) {
     let posOrig = pos;
     pos = pos.copy();
-    let cell = getCell(pos, grid);
+    let cell = grid.getCell(pos);
 
     let d = 0;
     let p1 = createVector();
@@ -267,7 +276,7 @@ function marchRay(hit, pos, dir, grid) {
         }
         pos.x += dir.x * 0.00000001;
         pos.y += dir.y * 0.00000001;
-        cell = getCell(pos, grid);
+        cell = grid.getCell(pos);
     }
 
     hit.pos.set(pos);
@@ -288,17 +297,38 @@ function getCellCoords(pos) {
     return createVector(gridx, gridy);
 }
 
-/**
- * 
- * @param {p5.Vector} pos 
- * @param {number[][]} grid 
- */
-function getCell(pos, grid) {
-    let gridx = Math.floor(pos.x);
-    let gridy = Math.floor(pos.y);
-    return grid[gridy][gridx];
+class Grid {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.data = generateGrid(width, height);
+    }
+
+    /**
+     * 
+     * @param {number} x index
+     * @param {number} y index
+     * @return {number}
+     */
+    cell(x, y) {
+        return this.data[y][x];
+    }
+
+    /**
+     * 
+     * @param {p5.Vector} pos 
+     */
+    getCell(pos) {
+        let gridx = Math.floor(pos.x);
+        let gridy = Math.floor(pos.y);
+        return this.data[gridy][gridx];
+    }
 }
 
+/**
+ * 
+ * @param {number[][]} grid 
+ */
 function makeExteriorWalls(grid) {
     for (let y = 0; y < grid.length; y++) {
         if (y == 0 || y == grid.length - 1) {
@@ -312,6 +342,12 @@ function makeExteriorWalls(grid) {
     }
 }
 
+/**
+ * 
+ * @param {number} w 
+ * @param {number} h 
+ * @param {(x,y)=>number} f function returning the cell data given the x,y grid position
+ */
 function generateGrid(w, h,
     f = (x, y) => Math.random() < 0.25 ? 1 : 0) {
     let grid = new Array(h);
@@ -325,13 +361,17 @@ function generateGrid(w, h,
     return grid;
 }
 
+/**
+ * 
+ * @param {Grid} grid 
+ */
 function findPlaceNotInWall(grid) {
     let inWall = true;
     let pos = createVector();
     while (inWall) {
-        pos.x = Math.random() * (grid[0].length - 2) + 1;
-        pos.y = Math.random() * (grid.length - 2) + 1;
-        inWall = getCell(pos, grid) == 1;
+        pos.x = Math.random() * (grid.width - 2) + 1;
+        pos.y = Math.random() * (grid.height - 2) + 1;
+        inWall = grid.getCell(pos) == 1;
     }
     return pos;
 }
