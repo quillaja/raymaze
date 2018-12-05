@@ -29,13 +29,15 @@ let cam;
 let dirs;
 
 let scalef = 50;
-let raywidth = 1;
+let raywidth = 2; // alters number of rays used/"resolution" of walls
 
 function setup() {
     createCanvas(windowWidth, windowHeight - 20);
-    cam = new Camera(1.8, 1.8);
-    dirs = new Array(Math.floor(width / raywidth));
     scalef *= Math.min(width, height) / 900;
+    dirs = new Array(Math.floor(width / raywidth));
+    grid = generateGrid(grid[0].length, grid.length);
+    let pos = findPlaceNotInWall(grid);
+    cam = new Camera(pos.x, pos.y);
 }
 
 function draw() {
@@ -109,7 +111,7 @@ function draw() {
                 let dir = dirs[i];
                 let hit = marchRay(cam.pos, dir, grid);
                 let d = p5.Vector.dist(cam.pos, hit);
-                const c = 250 / constrain(d * d, 1, 1000);
+                const c = 250 / constrain(d, 1, 1000);
                 fill(c);
                 rect((i + 0.5) * raywidth, 0, raywidth, height / d);
             }
@@ -260,4 +262,40 @@ function getCell(pos, grid) {
     let gridx = Math.floor(pos.x);
     let gridy = Math.floor(pos.y);
     return grid[gridy][gridx];
+}
+
+function makeExteriorWalls(grid) {
+    for (let y = 0; y < grid.length; y++) {
+        if (y == 0 || y == grid.length - 1) {
+            for (let x = 0; x < grid[y].length; x++) {
+                grid[y][x] = 1;
+            }
+        } else {
+            grid[y][0] = 1;
+            grid[y][grid[y].length - 1] = 1;
+        }
+    }
+}
+
+function generateGrid(w, h) {
+    let grid = new Array(h);
+    for (let y = 0; y < h; y++) {
+        grid[y] = new Array(w);
+        for (let x = 0; x < w; x++) {
+            grid[y][x] = Math.random() < 0.25 ? 1 : 0;
+        }
+    }
+    makeExteriorWalls(grid);
+    return grid;
+}
+
+function findPlaceNotInWall(grid) {
+    let inWall = true;
+    let pos = createVector();
+    while (inWall) {
+        pos.x = Math.random() * (grid[0].length - 2) + 1;
+        pos.y = Math.random() * (grid.length - 2) + 1;
+        inWall = getCell(pos, grid) == 1;
+    }
+    return pos;
 }
