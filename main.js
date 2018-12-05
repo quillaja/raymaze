@@ -33,9 +33,19 @@ let raywidth = 2; // alters number of rays used/"resolution" of walls
 
 function setup() {
     createCanvas(windowWidth, windowHeight - 20);
-    scalef *= Math.min(width, height) / 900;
+
+    let gw = grid[0].length;
+    let gh = grid.length;
+
+    if (width > height) {
+        scalef = Math.floor(height / gh);
+    } else {
+        scalef = Math.floor(width / gw);
+    }
+
+    grid = generateGrid(gw, gh);
+    // scalef *= Math.min(width, height) / 900;
     dirs = new Array(Math.floor(width / raywidth));
-    grid = generateGrid(grid[0].length, grid.length);
     let pos = findPlaceNotInWall(grid);
     cam = new Camera(pos.x, pos.y);
 }
@@ -74,7 +84,7 @@ function draw() {
         if (mapView) {
             // 2d map view
             push();
-            translate(25, height - 25);
+            translate(0, height);
             scale(scalef, -scalef);
 
             strokeWeight(0.01);
