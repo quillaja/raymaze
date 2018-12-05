@@ -28,11 +28,11 @@ let cam;
  */
 let dirs;
 
-let scalef = 50;
+let scalef = 1;
 let raywidth = 2; // alters number of rays used/"resolution" of walls
 
 function setup() {
-    createCanvas(windowWidth, windowHeight - 20);
+    createCanvas(windowWidth, windowHeight - 15);
 
     let gw = grid[0].length;
     let gh = grid.length;
@@ -102,12 +102,13 @@ function draw() {
             }
             noFill();
 
+            let hit = new Hit();
             for (const dir of cam.getRays(dirs)) {
                 stroke(0, 0, 255);
                 line(cam.pos.x, cam.pos.y, cam.pos.x + dir.x, cam.pos.y + dir.y);
-                let hit = marchRay(cam.pos, dir, grid)
+                marchRay(hit, cam.pos, dir, grid)
                 stroke(0, 255, 0);
-                ellipse(hit.x, hit.y, 0.1);
+                ellipse(hit.pos.x, hit.pos.y, 0.1);
             }
             pop();
         } else {
@@ -117,10 +118,11 @@ function draw() {
             noStroke();
             translate(0, height / 2);
             cam.getRays(dirs);
+            let hit = new Hit();
             for (let i = 0; i < dirs.length; i++) {
                 let dir = dirs[i];
-                let hit = marchRay(cam.pos, dir, grid);
-                let d = p5.Vector.dist(cam.pos, hit);
+                marchRay(hit, cam.pos, dir, grid);
+                let d = hit.d;
                 const c = 250 / constrain(d, 1, 1000);
                 fill(c);
                 rect((i + 0.5) * raywidth, 0, raywidth, height / d);
@@ -130,12 +132,11 @@ function draw() {
 
 
         fill(255);
-        // stroke(255);
         textSize(15);
         text("FPS: " + frameRate().toFixed(0), 10, 15);
         text(`POS: ${cam.pos.x.toFixed(1)}, ${cam.pos.y.toFixed(1)}`, 10, 30);
         let g = getCellCoords(cam.pos);
-        text(`CELL: ${g.x.toFixed(1)}, ${g.y.toFixed(1)}`, 10, 45);
+        text(`CELL: ${g.x.toFixed(0)}, ${g.y.toFixed(0)}`, 10, 45);
     }
 
 
@@ -195,7 +196,10 @@ class Camera {
         let end = p5.Vector.fromAngle(this.rot - this.fov / 2);
         directions[0] = start;
         for (let i = 1; i <= n - 2; i++) {
-            directions[i] = p5.Vector.lerp(start, end, i / (n - 1)).normalize();
+            if (!directions[i]) directions[i] = createVector();
+            directions[i].x = lerp(start.x, end.x, i / (n - 1));
+            directions[i].y = lerp(start.y, end.y, i / (n - 1));
+            directions[i].normalize();
         }
         directions[n - 1] = end;
         return directions;
@@ -211,18 +215,32 @@ class Camera {
     }
 }
 
+class Hit {
+    constructor() {
+        this.pos = createVector();
+        this.gridpos = createVector();
+        this.cell = 0;
+        this.d = 0;
+    }
+}
+
 /**
- * 
+ * @param {Hit} hit
  * @param {p5.Vector} dir 
  * @param {p5.Vector} pos 
  * @param {number[][]} grid 
  */
-function marchRay(pos, dir, grid) {
+function marchRay(hit, pos, dir, grid) {
+    let posOrig = pos;
+    pos = pos.copy();
     let cell = getCell(pos, grid);
 
+    let d = 0;
+    let p1 = createVector();
+    let p2 = createVector();
     while (cell == 0) {
-        let p1 = createVector();
-        let p2 = createVector();
+        p1.x = 0; p1.y = 0; p2.x = 0; p2.y = 0;
+
         if (dir.x > 0) {
             p1.x = Math.ceil(pos.x);
         } else if (dir.x < 0) {
@@ -241,16 +259,23 @@ function marchRay(pos, dir, grid) {
         let p2len = p5.Vector.dist(pos, p2);
 
         if (p1len <= p2len) {
-            pos = p1;
+            pos.set(p1);
+            d = p1len;
         } else {
-            pos = p2;
+            pos.set(p2);
+            d = p2len;
         }
         pos.x += dir.x * 0.00000001;
         pos.y += dir.y * 0.00000001;
         cell = getCell(pos, grid);
     }
 
-    return pos;
+    hit.pos.set(pos);
+    hit.cell = cell;
+    hit.d = p5.Vector.dist(posOrig, pos);
+    hit.gridpos = getCellCoords(pos);
+
+    return hit;
 }
 
 /**
@@ -287,12 +312,13 @@ function makeExteriorWalls(grid) {
     }
 }
 
-function generateGrid(w, h) {
+function generateGrid(w, h,
+    f = (x, y) => Math.random() < 0.25 ? 1 : 0) {
     let grid = new Array(h);
     for (let y = 0; y < h; y++) {
         grid[y] = new Array(w);
         for (let x = 0; x < w; x++) {
-            grid[y][x] = Math.random() < 0.25 ? 1 : 0;
+            grid[y][x] = f(x, y);
         }
     }
     makeExteriorWalls(grid);
