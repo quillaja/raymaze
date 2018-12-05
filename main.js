@@ -97,7 +97,7 @@ function draw() {
 
             for (let y = 0; y < grid.height; y++) {
                 for (let x = 0; x < grid.width; x++) {
-                    if (grid.cell(x,y) == 0) {
+                    if (grid.cell(x, y) == 0) {
                         noFill();
                     } else {
                         fill(255, 0, 0);
@@ -375,3 +375,23 @@ function findPlaceNotInWall(grid) {
     }
     return pos;
 }
+
+/**
+ * 
+ * @param {number} cell 
+ * @return {p5.Color}
+ */
+function colorFromCell(cell) {
+    return color(
+        255 * cell & COLOR_R >> 2,
+        255 * cell & COLOR_G >> 1,
+        255 * cell & COLOR_B);
+}
+
+// masks
+const SOLID = 0b10000000;
+const EXIT = 0b01000000;
+const ENTRANCE = 0b00100000;
+const COLOR_R = 0b00000100;
+const COLOR_G = 0b00000010;
+const COLOR_B = 0b00000001;
