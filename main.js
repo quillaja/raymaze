@@ -146,8 +146,11 @@ function draw() {
 
 }
 
+/**
+ * initialize system.
+ */
 function createGridAndPlaceCam() {
-    grid = new Grid(gridw, gridh);
+    grid = new Grid(gridw, gridh, makeGridColor(3, 2, 0));
     let pos = findPlaceNotInWall(grid);
     cam = new Camera(pos.x, pos.y);
 }
@@ -316,10 +319,12 @@ function getCellCoords(pos) {
 }
 
 class Grid {
-    constructor(width, height) {
+    constructor(width, height, wallColor = COLOR_W, exitColor = COLOR_G) {
         this.width = width;
         this.height = height;
-        this.data = generateGrid(width, height);
+        this.data = generateGrid(width, height, wallColor);
+        makeExteriorWalls(this.data, wallColor);
+        placeExit(this.data, exitColor);
     }
 
     /**
@@ -352,15 +357,15 @@ function cellIs(cell, flags) {
  * 
  * @param {number[][]} grid 
  */
-function makeExteriorWalls(grid, color = COLOR_W) {
+function makeExteriorWalls(grid, color) {
     for (let y = 0; y < grid.length; y++) {
         if (y == 0 || y == grid.length - 1) {
             for (let x = 0; x < grid[y].length; x++) {
-                grid[y][x] |= SOLID | color;
+                grid[y][x] = SOLID | color;
             }
         } else {
-            grid[y][0] |= SOLID | color;
-            grid[y][grid[y].length - 1] |= SOLID | color;
+            grid[y][0] = SOLID | color;
+            grid[y][grid[y].length - 1] = SOLID | color;
         }
     }
 }
@@ -370,45 +375,48 @@ function makeExteriorWalls(grid, color = COLOR_W) {
  * @param {number[][]} grid 
  * @param {number} color 
  */
-function placeExit(grid, color = COLOR_G) {
+function placeExit(grid, color) {
+    const gw = grid[0].length;
+    const gh = grid.length;
     let inWall = false;
     let pos = createVector();
-    while (true) {
+    for (let tries = 0; tries < 20; tries++) {
         // find a non-solid cell
         while (!inWall) {
-            pos.x = Math.floor(Math.random() * (grid[0].length - 2) + 1);
-            pos.y = Math.floor(Math.random() * (grid.length - 2) + 1);
+            pos.x = Math.floor(Math.random() * (gw - 2) + 1);
+            pos.y = Math.floor(Math.random() * (gh - 2) + 1);
             inWall = cellIs(grid[pos.y][pos.x], SOLID);
         }
         // check that at least one neighbor is not solid
-        if (!cellIs(grid[pos.y + 1][pos.x], SOLID) ||
-            !cellIs(grid[pos.y - 1][pos.x], SOLID) ||
-            !cellIs(grid[pos.y][pos.x + 1], SOLID) ||
-            !cellIs(grid[pos.y][pos.x - 1], SOLID)) {
-            grid[pos.y][pos.x] = EXIT | color;
-            return;
+        for (let y = -1; y <= 1; y += 2) {
+            for (let x = -1; x <= 1; x += 2) {
+                if (!cellIs(grid[constrain(pos.y + y, 0, gh)][constrain(pos.x + x, 0, gw)], SOLID)) {
+                    grid[pos.y][pos.x] = EXIT | color;
+                    return;
+                }
+            }
         }
     }
+    console.log("gave up on exit");
 }
 
 /**
  * 
  * @param {number} w 
  * @param {number} h 
- * @param {(x,y)=>number} f function returning the cell data given the x,y grid position
+ * @param {number} wallColor
+ * @param {(x,y,w,h,wc)=>number} f function returning the cell data given the x,y grid position
  * @returns {number[][]}
  */
-function generateGrid(w, h,
-    f = (x, y) => Math.random() < 0.25 ? SOLID | COLOR_W : NONE) {
+function generateGrid(w, h, wallColor,
+    f = (x, y, w, h, wc) => Math.random() < 0.25 ? SOLID | wc : NONE) {
     let grid = new Array(h);
     for (let y = 0; y < h; y++) {
         grid[y] = new Array(w);
         for (let x = 0; x < w; x++) {
-            grid[y][x] |= f(x, y);
+            grid[y][x] |= f(x, y, w, h, wallColor);
         }
     }
-    makeExteriorWalls(grid);
-    placeExit(grid);
     return grid;
 }
 
@@ -443,6 +451,17 @@ function colorFromCell(cell) {
 function vecToColor(v) {
     return color(v.x, v.y, v.z);
 }
+
+/**
+ * 
+ * @param {number} r 0-3
+ * @param {number} g 0-3
+ * @param {number} b 0-3
+ */
+function makeGridColor(r, g, b) {
+    return r << 4 | g << 2 | b;
+}
+
 
 // masks
 const NONE = 0;
