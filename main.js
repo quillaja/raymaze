@@ -33,26 +33,25 @@ let dirs;
  */
 let grid;
 
+const gridw = 25;
+const gridh = 25;
+
 let scalef = 1;
 let raywidth = 2; // alters number of rays used/"resolution" of walls
 
 function setup() {
     createCanvas(windowWidth, windowHeight - 15);
 
-    let gw = 25;//griddata[0].length;
-    let gh = 25;//griddata.length;
 
     if (width > height) {
-        scalef = Math.floor(height / gh);
+        scalef = Math.floor(height / gridh);
     } else {
-        scalef = Math.floor(width / gw);
+        scalef = Math.floor(width / gridw);
     }
 
-    grid = new Grid(gw, gh);
-    // scalef *= Math.min(width, height) / 900;
     dirs = new Array(Math.floor(width / raywidth));
-    let pos = findPlaceNotInWall(grid);
-    cam = new Camera(pos.x, pos.y);
+
+    createGridAndPlaceCam();
 }
 
 function draw() {
@@ -80,7 +79,7 @@ function draw() {
         mapView = false;
     }
 
-    cam.correctWallViolation(grid);
+    cam.checkCollisions(grid);
 
     if (cam.hasMoved() || viewChanged) {
         background(0);
@@ -92,19 +91,18 @@ function draw() {
             translate(0, height);
             scale(scalef, -scalef);
 
-            strokeWeight(0.01);
-            stroke(255, 0, 0);
-
+            noStroke();
             for (let y = 0; y < grid.height; y++) {
                 for (let x = 0; x < grid.width; x++) {
-                    if (grid.cell(x, y) == 0) {
-                        noFill();
-                    } else {
-                        fill(255, 0, 0);
+                    if (grid.match(x, y, SOLID)) {
+                        let c = vecToColor(colorFromCell(grid.cell(x, y)));
+                        fill(c);
+                        rect(x, y, 1, 1);
                     }
-                    rect(x, y, 1, 1);
                 }
             }
+
+            strokeWeight(0.01);
             noFill();
 
             let hit = new Hit();
@@ -128,7 +126,8 @@ function draw() {
                 let dir = dirs[i];
                 marchRay(hit, cam.pos, dir, grid);
                 let d = hit.d;
-                const c = 250 / constrain(d, 1, 1000);
+                // const c = 250 / constrain(d, 1, 1000);
+                let c = vecToColor(colorFromCell(hit.cell).div(Math.max(1, d)));
                 fill(c);
                 rect((i + 0.5) * raywidth, 0, raywidth, height / d);
             }
@@ -145,6 +144,12 @@ function draw() {
     }
 
 
+}
+
+function createGridAndPlaceCam() {
+    grid = new Grid(gridw, gridh);
+    let pos = findPlaceNotInWall(grid);
+    cam = new Camera(pos.x, pos.y);
 }
 
 class Camera {
@@ -214,9 +219,22 @@ class Camera {
      * 
      * @param {Grid} grid 
      */
+    checkCollisions(grid) {
+        if (grid.match(this.pos.x, this.pos.y, EXIT)) {
+            console.log("found exit");
+            createGridAndPlaceCam();
+            return;
+        }
+        this.correctWallViolation(grid);
+    }
+
+    /**
+     * 
+     * @param {Grid} grid 
+     */
     correctWallViolation(grid) {
-        let cell = grid.getCell(this.pos);
-        if (cell != 0) {
+        let wall = grid.match(this.pos.x, this.pos.y, SOLID);
+        if (wall) {
             // inside a wall
             this.pos.x = this.prevPos.x;
             this.pos.y = this.prevPos.y;
@@ -242,12 +260,12 @@ class Hit {
 function marchRay(hit, pos, dir, grid) {
     let posOrig = pos;
     pos = pos.copy();
-    let cell = grid.getCell(pos);
+    let wall = grid.match(pos.x, pos.y, SOLID);
 
     let d = 0;
     let p1 = createVector();
     let p2 = createVector();
-    while (cell == 0) {
+    while (!wall) {
         p1.x = 0; p1.y = 0; p2.x = 0; p2.y = 0;
 
         if (dir.x > 0) {
@@ -276,11 +294,11 @@ function marchRay(hit, pos, dir, grid) {
         }
         pos.x += dir.x * 0.00000001;
         pos.y += dir.y * 0.00000001;
-        cell = grid.getCell(pos);
+        wall = grid.match(pos.x, pos.y, SOLID);
     }
 
     hit.pos.set(pos);
-    hit.cell = cell;
+    hit.cell = grid.cell(pos.x, pos.y);
     hit.d = p5.Vector.dist(posOrig, pos);
     hit.gridpos = getCellCoords(pos);
 
@@ -306,38 +324,69 @@ class Grid {
 
     /**
      * 
-     * @param {number} x index
-     * @param {number} y index
+     * @param {number} x 
+     * @param {number} y 
      * @return {number}
      */
     cell(x, y) {
-        return this.data[y][x];
-    }
-
-    /**
-     * 
-     * @param {p5.Vector} pos 
-     */
-    getCell(pos) {
-        let gridx = Math.floor(pos.x);
-        let gridy = Math.floor(pos.y);
+        let gridx = Math.floor(x);
+        let gridy = Math.floor(y);
         return this.data[gridy][gridx];
     }
+
+    match(x, y, flags) {
+        return cellIs(this.cell(x, y), flags);
+    }
+}
+
+/**
+ * 
+ * @param {number} cell 
+ * @param {number} flags 
+ */
+function cellIs(cell, flags) {
+    return (cell & flags) == flags;
 }
 
 /**
  * 
  * @param {number[][]} grid 
  */
-function makeExteriorWalls(grid) {
+function makeExteriorWalls(grid, color = COLOR_W) {
     for (let y = 0; y < grid.length; y++) {
         if (y == 0 || y == grid.length - 1) {
             for (let x = 0; x < grid[y].length; x++) {
-                grid[y][x] = 1;
+                grid[y][x] |= SOLID | color;
             }
         } else {
-            grid[y][0] = 1;
-            grid[y][grid[y].length - 1] = 1;
+            grid[y][0] |= SOLID | color;
+            grid[y][grid[y].length - 1] |= SOLID | color;
+        }
+    }
+}
+
+/**
+ * 
+ * @param {number[][]} grid 
+ * @param {number} color 
+ */
+function placeExit(grid, color = COLOR_G) {
+    let inWall = false;
+    let pos = createVector();
+    while (true) {
+        // find a non-solid cell
+        while (!inWall) {
+            pos.x = Math.floor(Math.random() * (grid[0].length - 2) + 1);
+            pos.y = Math.floor(Math.random() * (grid.length - 2) + 1);
+            inWall = cellIs(grid[pos.y][pos.x], SOLID);
+        }
+        // check that at least one neighbor is not solid
+        if (!cellIs(grid[pos.y + 1][pos.x], SOLID) ||
+            !cellIs(grid[pos.y - 1][pos.x], SOLID) ||
+            !cellIs(grid[pos.y][pos.x + 1], SOLID) ||
+            !cellIs(grid[pos.y][pos.x - 1], SOLID)) {
+            grid[pos.y][pos.x] = EXIT | color;
+            return;
         }
     }
 }
@@ -347,17 +396,19 @@ function makeExteriorWalls(grid) {
  * @param {number} w 
  * @param {number} h 
  * @param {(x,y)=>number} f function returning the cell data given the x,y grid position
+ * @returns {number[][]}
  */
 function generateGrid(w, h,
-    f = (x, y) => Math.random() < 0.25 ? 1 : 0) {
+    f = (x, y) => Math.random() < 0.25 ? SOLID | COLOR_W : NONE) {
     let grid = new Array(h);
     for (let y = 0; y < h; y++) {
         grid[y] = new Array(w);
         for (let x = 0; x < w; x++) {
-            grid[y][x] = f(x, y);
+            grid[y][x] |= f(x, y);
         }
     }
     makeExteriorWalls(grid);
+    placeExit(grid);
     return grid;
 }
 
@@ -371,7 +422,7 @@ function findPlaceNotInWall(grid) {
     while (inWall) {
         pos.x = Math.random() * (grid.width - 2) + 1;
         pos.y = Math.random() * (grid.height - 2) + 1;
-        inWall = grid.getCell(pos) == 1;
+        inWall = grid.match(pos.x, pos.y, SOLID);
     }
     return pos;
 }
@@ -379,19 +430,26 @@ function findPlaceNotInWall(grid) {
 /**
  * 
  * @param {number} cell 
- * @return {p5.Color}
+ * @return {p5.Vector}
  */
 function colorFromCell(cell) {
-    return color(
-        255 * cell & COLOR_R >> 2,
-        255 * cell & COLOR_G >> 1,
-        255 * cell & COLOR_B);
+    return createVector(
+        255 * ((cell & COLOR_R) >> 4) / 3,
+        255 * ((cell & COLOR_G) >> 2) / 3,
+        255 * (cell & COLOR_B) / 3
+    );
+}
+
+function vecToColor(v) {
+    return color(v.x, v.y, v.z);
 }
 
 // masks
+const NONE = 0;
 const SOLID = 0b10000000;
-const EXIT = 0b01000000;
-const ENTRANCE = 0b00100000;
-const COLOR_R = 0b00000100;
-const COLOR_G = 0b00000010;
-const COLOR_B = 0b00000001;
+const ENTRY = 0b01000000;
+const EXIT = SOLID | ENTRY;
+const COLOR_R = 0b00110000;
+const COLOR_G = 0b00001100;
+const COLOR_B = 0b00000011;
+const COLOR_W = COLOR_R | COLOR_G | COLOR_B;
