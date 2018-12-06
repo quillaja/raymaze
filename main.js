@@ -39,17 +39,18 @@ const gridh = 25;
 let scalef = 1;
 let raywidth = 2; // alters number of rays used/"resolution" of walls
 
+const toggles = {
+    mapView: false,
+    viewChanged: true,
+    statsDisplay: false,
+}
+
 function setup() {
     createCanvas(windowWidth, windowHeight - 5);
 
     calculateRenderingParams();
     createGridAndPlaceCam();
 }
-
-
-// needed for toggling between map/3d view, and flagging a redraw
-let mapView = false;
-let viewChanged = true;
 
 function draw() {
 
@@ -68,11 +69,11 @@ function draw() {
 
     cam.checkCollisions(grid);
 
-    if (cam.hasMoved() || viewChanged) {
+    if (cam.hasMoved() || toggles.viewChanged) {
         background(0);
-        viewChanged = false;
+        toggles.viewChanged = false;
 
-        if (mapView) {
+        if (toggles.mapView) {
             // 2d map view
             push();
             translate(0, height);
@@ -137,13 +138,15 @@ function draw() {
             pop();
         }
 
-
-        fill(255);
-        textSize(15);
-        text("FPS: " + frameRate().toFixed(0), 10, 15);
-        text(`POS: ${cam.pos.x.toFixed(1)}, ${cam.pos.y.toFixed(1)}`, 10, 30);
-        let g = getCellCoords(cam.pos);
-        text(`CELL: ${g.x.toFixed(0)}, ${g.y.toFixed(0)}`, 10, 45);
+        if (toggles.statsDisplay) {
+            textFont("monospace");
+            fill(255);
+            textSize(15);
+            text(`FPS: ${frameRate().toFixed(0)}`, 10, 15);
+            let g = getCellCoords(cam.pos);
+            text(`CELL: ${g.x.toFixed(0)}, ${g.y.toFixed(0)} POS: ${cam.pos.x.toFixed(1)}, ${cam.pos.y.toFixed(1)}`, 10, 30);
+            text(`RAYS: ${dirs.length} RWIDTH: ${raywidth.toFixed(1)}`, 10, 45);
+        }
     }
 
 
@@ -151,8 +154,12 @@ function draw() {
 
 function keyPressed() {
     if (keyCode === 32) { // space
-        mapView = !mapView;
-        viewChanged = true;
+        toggles.mapView = !toggles.mapView;
+        toggles.viewChanged = true;
+    }
+    if (keyCode === 83) { // s key
+        toggles.statsDisplay = !toggles.statsDisplay;
+        toggles.viewChanged = true;
     }
 }
 
