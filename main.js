@@ -49,34 +49,30 @@ function setup() {
         scalef = Math.floor(width / gridw);
     }
 
-    dirs = new Array(Math.floor(width / raywidth));
+    raywidth *= width / height;
+    dirs = new Array(Math.round(width / raywidth));
 
     createGridAndPlaceCam();
 }
 
+
+// needed for toggling between map/3d view, and flagging a redraw
+let mapView = false;
+let viewChanged = true;
+
 function draw() {
 
-    let mapView = false;
-    let viewChanged = true;
-
-    if (keyIsDown(LEFT_ARROW)) {
+    if (keyIsDown(LEFT_ARROW) || (mouseIsPressed && mouseX < width / 2)) {
         cam.rotateCCW();
     }
-    if (keyIsDown(RIGHT_ARROW)) {
+    if (keyIsDown(RIGHT_ARROW) || (mouseIsPressed && mouseX >= width / 2)) {
         cam.rotateCW();
     }
-    if (keyIsDown(UP_ARROW)) {
+    if (keyIsDown(UP_ARROW) || rotationY < -5) {
         cam.moveForward();
     }
     if (keyIsDown(DOWN_ARROW)) {
         cam.moveBackward();
-    }
-    if (keyIsDown(32)) {
-        viewChanged = !mapView;
-        mapView = true;
-    } else {
-        viewChanged = mapView;
-        mapView = false;
     }
 
     cam.checkCollisions(grid);
@@ -118,17 +114,31 @@ function draw() {
             // 3d view
             push();
             rectMode(CENTER);
-            noStroke();
             translate(0, height / 2);
+
+            // draw ceiling and floor
+            const maxh = (height / 2) / raywidth;
+            for (let h = 0; h < maxh; h++) {
+                let c = 100 * (h / maxh);
+                fill(c);
+                stroke(c);
+                // floor
+                rect(width / 2, (h + 0.5) * raywidth, width, raywidth);
+                // ceiling
+                rect(width / 2, -(h + 0.5) * raywidth, width, raywidth);
+            }
+
+            // draw walls
             cam.getRays(dirs);
             let hit = new Hit();
             for (let i = 0; i < dirs.length; i++) {
                 let dir = dirs[i];
                 marchRay(hit, cam.pos, dir, grid);
-                let d = hit.d;
+                let d = hit.d * (dir.x * Math.cos(cam.rot) + dir.y * Math.sin(cam.rot));
                 // const c = 250 / constrain(d, 1, 1000);
                 let c = vecToColor(colorFromCell(hit.cell).div(Math.max(1, d)));
                 fill(c);
+                stroke(c);
                 rect((i + 0.5) * raywidth, 0, raywidth, height / d);
             }
             pop();
@@ -146,22 +156,29 @@ function draw() {
 
 }
 
+function keyPressed() {
+    if (keyCode === 32) { // space
+        mapView = !mapView;
+        viewChanged = true;
+    }
+}
+
 /**
  * initialize system.
  */
 function createGridAndPlaceCam() {
-    grid = new Grid(gridw, gridh, makeGridColor(3, 2, 0));
+    grid = new Grid(gridw, gridh, makeGridColor(0, 2, 2));
     let pos = findPlaceNotInWall(grid);
     cam = new Camera(pos.x, pos.y);
 }
 
 class Camera {
-    constructor(x = 0, y = 0, fov = QUARTER_PI) {
+    constructor(x = 0, y = 0, fov = 1) {
         this.pos = createVector(x, y);
         this.prevPos = createVector();
         this.rot = 0; //radians
         this.moved = true;
-        this.fov = fov;
+        this.fov = fov * (0.5 * width / height);
     }
 
     rotateCCW(speed = PI / 100) {
