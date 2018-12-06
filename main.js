@@ -62,16 +62,16 @@ let viewChanged = true;
 
 function draw() {
 
-    if (keyIsDown(LEFT_ARROW) || (mouseIsPressed && mouseX < width / 2)) {
+    if (keyIsDown(LEFT_ARROW) || (mouseIsPressed && mouseX < width / 3)) {
         cam.rotateCCW();
     }
-    if (keyIsDown(RIGHT_ARROW) || (mouseIsPressed && mouseX >= width / 2)) {
+    if (keyIsDown(RIGHT_ARROW) || (mouseIsPressed && mouseX >= 2 / 3 * width)) {
         cam.rotateCW();
     }
-    if (keyIsDown(UP_ARROW) || rotationY < -5) {
+    if (keyIsDown(UP_ARROW) || (mouseIsPressed && mouseY < height / 3)) {
         cam.moveForward();
     }
-    if (keyIsDown(DOWN_ARROW)) {
+    if (keyIsDown(DOWN_ARROW) || (mouseIsPressed && mouseY >= 2 / 3 * height)) {
         cam.moveBackward();
     }
 
