@@ -353,7 +353,7 @@ class Grid {
     constructor(width, height, wallColor = COLOR_W, exitColor = COLOR_G) {
         this.width = width;
         this.height = height;
-        this.data = generateGrid(width, height, wallColor);
+        this.data = Math.random() < 0.5 ? generateGridRandomWalks(width, height, wallColor, 15, 60) : generateGridRandom(width, height, wallColor);
         makeExteriorWalls(this.data, wallColor);
         placeExit(this.data, exitColor);
     }
@@ -439,8 +439,8 @@ function placeExit(grid, color) {
  * @param {(x,y,w,h,wc)=>number} f function returning the cell data given the x,y grid position
  * @returns {number[][]}
  */
-function generateGrid(w, h, wallColor,
-    f = (x, y, w, h, wc) => Math.random() < 0.25 ? SOLID | wc : NONE) {
+function generateGridRandom(w, h, wallColor,
+    f = (x, y, w, h, wc) => Math.random() < 0.2 ? SOLID | wc : NONE) {
     let grid = new Array(h);
     for (let y = 0; y < h; y++) {
         grid[y] = new Array(w);
@@ -448,6 +448,51 @@ function generateGrid(w, h, wallColor,
             grid[y][x] |= f(x, y, w, h, wallColor);
         }
     }
+    return grid;
+}
+
+/**
+ *  
+ * @param {number} w 
+ * @param {number} h 
+ * @param {number} wallColor 
+ * @param {number} walkLen
+ * @param {number} numWalks 
+ */
+function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
+    // create grid completely solid
+    let grid = new Array(h);
+    for (let y = 0; y < grid.length; y++) {
+        grid[y] = new Array(w);
+        for (let x = 0; x < grid[y].length; x++) {
+            grid[y][x] = SOLID | wallColor;
+        }
+    }
+
+    // carve out numWalks random walks
+    for (let n = 0; n < numWalks; n++) {
+        let pos = createVector(Math.floor(random(1, w)), Math.floor(random(1, h)));
+        for (let step = 0; step < walkLen; step++) {
+            grid[pos.y][pos.x] = NONE;
+            switch (Math.floor(random(4))) {
+                case 0:
+                    pos.x++;
+                    break;
+                case 1:
+                    pos.x--;
+                    break;
+                case 2:
+                    pos.y++;
+                    break;
+                case 3:
+                    pos.y--;
+                    break;
+            }
+            pos.x = constrain(pos.x, 1, w - 1);
+            pos.y = constrain(pos.y, 1, h - 1);
+        }
+    }
+
     return grid;
 }
 
