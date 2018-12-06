@@ -130,16 +130,19 @@ function draw() {
 
             // draw walls
             cam.getRays(dirs);
+            const camcos = Math.cos(cam.rot);
+            const camsin = Math.sin(cam.rot);
             let hit = new Hit();
             for (let i = 0; i < dirs.length; i++) {
                 let dir = dirs[i];
                 marchRay(hit, cam.pos, dir, grid);
-                let d = hit.d * (dir.x * Math.cos(cam.rot) + dir.y * Math.sin(cam.rot));
-                // const c = 250 / constrain(d, 1, 1000);
+                // dot product ray dir with look dir to scale d so straight lines look straight when viewed straight on.
+                let d = hit.d * (dir.x * camcos + dir.y * camsin);
                 let c = vecToColor(colorFromCell(hit.cell).div(Math.max(1, d)));
                 fill(c);
                 stroke(c);
-                rect((i + 0.5) * raywidth, 0, raywidth, height / d);
+                // wall strip Height is width/d because (width/height)*height/d => width/d
+                rect((i + 0.5) * raywidth, 0, raywidth, width / d);
             }
             pop();
         }
