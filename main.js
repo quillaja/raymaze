@@ -40,18 +40,9 @@ let scalef = 1;
 let raywidth = 2; // alters number of rays used/"resolution" of walls
 
 function setup() {
-    createCanvas(windowWidth, windowHeight - 15);
+    createCanvas(windowWidth, windowHeight - 5);
 
-
-    if (width > height) {
-        scalef = Math.floor(height / gridh);
-    } else {
-        scalef = Math.floor(width / gridw);
-    }
-
-    raywidth *= width / height;
-    dirs = new Array(Math.round(width / raywidth));
-
+    calculateRenderingParams();
     createGridAndPlaceCam();
 }
 
@@ -130,19 +121,18 @@ function draw() {
 
             // draw walls
             cam.getRays(dirs);
-            const camcos = Math.cos(cam.rot);
-            const camsin = Math.sin(cam.rot);
+            const lookx = Math.cos(cam.rot); // calculate look direction vector
+            const looky = Math.sin(cam.rot);
             let hit = new Hit();
             for (let i = 0; i < dirs.length; i++) {
                 let dir = dirs[i];
                 marchRay(hit, cam.pos, dir, grid);
-                // dot product ray dir with look dir to scale d so straight lines look straight when viewed straight on.
-                let d = hit.d * (dir.x * camcos + dir.y * camsin);
+                // dot product ray dir with look dir to scale d so straight lines look straight.
+                let d = hit.d * (dir.x * lookx + dir.y * looky);
                 let c = vecToColor(colorFromCell(hit.cell).div(Math.max(1, d)));
                 fill(c);
                 stroke(c);
-                // wall strip Height is width/d because (width/height)*height/d => width/d
-                rect((i + 0.5) * raywidth, 0, raywidth, width / d);
+                rect((i + 0.5) * raywidth, 0, raywidth, height / d);
             }
             pop();
         }
@@ -166,6 +156,27 @@ function keyPressed() {
     }
 }
 
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight - 5);
+    calculateRenderingParams();
+    cam = new Camera(cam.pos.x, cam.pos.y, cam.rot); // remake camera in old position
+}
+
+/**
+ * set up params for doing rendering calcs
+ */
+function calculateRenderingParams() {
+    if (width > height) {
+        scalef = Math.floor(height / gridh);
+    } else {
+        scalef = Math.floor(width / gridw);
+    }
+
+    raywidth = width / 400; // set raywidth according to width of screen
+    raywidth *= height / width; // apparently the KEY was h/w instead of w/h??
+    dirs = new Array(Math.round(width / raywidth));
+}
+
 /**
  * initialize system.
  */
@@ -176,12 +187,12 @@ function createGridAndPlaceCam() {
 }
 
 class Camera {
-    constructor(x = 0, y = 0, fov = 1) {
+    constructor(x = 0, y = 0, rot = 0, fov = QUARTER_PI) {
         this.pos = createVector(x, y);
         this.prevPos = createVector();
-        this.rot = 0; //radians
+        this.rot = rot; //radians
         this.moved = true;
-        this.fov = fov * (0.5 * width / height);
+        this.fov = fov * (width / height); // scale ideal fov by aspect ratio
     }
 
     rotateCCW(speed = PI / 100) {
