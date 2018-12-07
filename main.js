@@ -68,7 +68,6 @@ function setup() {
     createCanvas(windowWidth, windowHeight - 5);
 
     calculateRenderingParams();
-
     createGridAndPlaceCam();
 }
 
@@ -130,7 +129,7 @@ function draw() {
                 ellipse(cam.pos.x, cam.pos.y, 0.4);
                 stroke(0, 255, 0);
                 strokeWeight(0.08);
-                line(cam.pos.x, cam.pos.y, cam.pos.x + Math.cos(cam.rot), cam.pos.y + Math.sin(cam.rot));
+                line(cam.pos.x, cam.pos.y, cam.pos.x + 0.5 * Math.cos(cam.rot), cam.pos.y + 0.5 * Math.sin(cam.rot));
             }
             pop();
         } else {
@@ -582,51 +581,133 @@ function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
  * @param {number} h 
  * @param {number} wallColor 
  */
-function generateGridWilson(w, h, wallColor, numWalks = 100) {
-    // create completely solid grid
-    let grid = generateSolidGrid(w, h, wallColor);
+function generateGridWilson(w, h, wallColor) {
+    // flags for maze
+    const T = 1;
+    const R = 2;
+    const B = 4;
+    const L = 8;
+    const IN = 16; // in maze (aka already added)
+    // create completely solid maze
+    const mw = Math.floor(w / 2);
+    const mh = Math.floor(h / 2);
+    let maze = new Array(mh);
+    for (let y = 0; y < mh; y++) {
+        maze[y] = new Array(mw);
+        for (let x = 0; x < mw; x++) {
+            maze[y][x] = T | R | B | L; // set all 'walls'
+        }
+    }
 
-    let pos = findPlaceInWall(grid);
+    // 0. choose inital place not IN to set to IN
+    let notIn = () => randPosPredicate(maze, true, (x, y) => (maze[y][x] & IN) == 0);
+    let pos = notIn();
+    maze[pos.y][pos.x] |= IN;
     let visted = [];
-    // while (pos != undefined) {
-    for (let i = 0; i < numWalks && pos != undefined; i++) {
-        // 1. choose place in wall
-        grid[pos.y][pos.x] = NONE;
+    while ((pos = notIn()) != undefined) {
+        // 1. choose a random place in maze not IN, add to visited
+        // pos = randPosPredicate(maze, true, (x, y) => (maze[y][x] & IN) == 0);
+        visted.push(pos.copy());
 
         let takingAWalk = true;
         while (takingAWalk) {
             // 2. take random walk, keeping list of visited cells
             takeRandomStep(pos);
-            pos.x = constrain(pos.x, 1, w - 1); // don't enter outer wall
-            pos.y = constrain(pos.y, 1, h - 1);
+            pos.x = constrain(pos.x, 0, mw - 1); // don't leave maze
+            pos.y = constrain(pos.y, 0, mh - 1);
             visted.push(pos.copy());
-            // 3. if visit a cell that is NOT a wall, stop
-            if (!cellIs(grid[pos.y][pos.x], SOLID)) {
+            // 3. if visit a cell that is IN, stop
+            if ((maze[pos.y][pos.x] & IN) == IN) {
                 takingAWalk = false;
             } else {
                 // 4. if visit a previously visted cell, delete the list of the loop
                 let prev = visted.findIndex((p) => pos.x == p.x && pos.y == p.y);
-                if (prev > -1 && prev != visted.length - 1) {
+                if (prev > -1 && prev < visted.length - 1) {
                     visted = visted.slice(0, prev + 1); // keep 0-prev. discards looped walk path
                 }
             }
         }
 
-        // 4. use the generated list of visited cells to 'carve' path.
-        for (const p of visted) {
-            grid[p.y][p.x] = NONE;
+        // 4. use the generated list of visited cells to 'carve' path. set cells as IN.
+        for (let i = 1; i < visted.length; i++) {
+            let d = p5.Vector.sub(visted[i], visted[i - 1]);
+            let x = visted[i].x;
+            let y = visted[i].y;
+            // remove walls. maze[0][0] is in "top left"
+            if (d.x == 0 && d.y == 1) { // moved down
+                maze[y][x] &= ~T;
+                maze[y - d.y][x - d.x] &= ~B;
+            } else if (d.x == 0 && d.y == -1) { // moved up
+                maze[y][x] &= ~B;
+                maze[y - d.y][x - d.x] &= ~T;
+            } else if (d.x == 1 && d.y == 0) { // moved right
+                maze[y][x] &= ~L;
+                maze[y - d.y][x - d.x] &= ~R;
+            } else if (d.x == -1 && d.y == 0) { // moved left
+                maze[y][x] &= ~R;
+                maze[y - d.y][x - d.x] &= ~L;
+            }
+            // set IN
+            maze[y][x] |= IN;
+            maze[y - d.y][x - d.x] |= IN;
         }
-        // for (let i = 0; i < visted.length - 1; i++) {
-        //     let d = p5.Vector.sub(visted[i + 1], visted[i]);
-        //     for (let y = 0; y <= d.y; y++) {
-        //         for (let x = 0; x <= d.x; x++) {
-        //             grid[visted[i].y + y][visted[i].x + x] = NONE;
-        //         }
-        //     }
-        // }
         // 5. go to 1
-        visted.length = 0; // clear array
-        pos = findPlaceInWall(grid);
+        visted = []; // clear array
+        // pos = randPosPredicate(maze, true, (x, y) => (maze[y][x] & IN) == 0);
+    }
+
+    // for testing
+    // push();
+    // background(50);
+    // translate(10, 10);
+    // stroke(255);
+    // strokeWeight(0.1);
+    // scale(20);
+    // for (let y = 0; y < mh; y++) {
+    //     for (let x = 0; x < mw; x++) {
+    //         for (const w of [T, R, B, L]) {
+    //             switch (maze[y][x] & w) {
+    //                 case T:
+    //                     line(x, y, x + 1, y);
+    //                     break;
+    //                 case R:
+    //                     line(x + 1, y, x + 1, y + 1);
+    //                     break;
+    //                 case B:
+    //                     line(x, y + 1, x + 1, y + 1);
+    //                     break;
+    //                 case L:
+    //                     line(x, y, x, y + 1);
+    //                     break;
+    //             }
+    //         }
+    //     }
+    // }
+    // noLoop();
+    // pop();
+
+    // convert maze to grid
+    // maze-index*2 + 1 = grid-index
+    let gi = (mi) => (mi * 2) + 1;
+    let grid = generateSolidGrid(gi(mw), gi(mh), wallColor);
+    for (let y = 0; y < mh; y++) {
+        for (let x = 0; x < mw; x++) {
+            // carve out the current part of the maze
+            grid[gi(y)][gi(x)] = NONE;
+            // cut out appropriate adjacent walls
+            if ((maze[y][x] & T) == 0) {
+                grid[gi(y) - 1][gi(x)] = NONE;
+            }
+            if ((maze[y][x] & B) == 0) {
+                grid[gi(y) + 1][gi(x)] = NONE;
+            }
+            if ((maze[y][x] & R) == 0) {
+                grid[gi(y)][gi(x) + 1] = NONE;
+            }
+            if ((maze[y][x] & L) == 0) {
+                grid[gi(y)][gi(x) - 1] = NONE;
+            }
+        }
     }
 
     return grid;
@@ -676,15 +757,18 @@ function findPlaceNotInWall(grid) {
 /**
  * 
  * @param {number[][]} grid 
+ * @param {boolean} incOuterWall true to include the outer most 'layer' of cells in search.
+ * @param {(x:number,y:number)=>boolean} predicate func to return true if cell is to be possibly randomly selected
  * @returns {p5.Vector|undefined} position or undefined if there are no walls (other than exterior)
  */
-function findPlaceInWall(grid) {
+function randPosPredicate(grid, incOuterWall = false, predicate = (x, y) => cellIs(grid[y][x], SOLID)) {
     const gh = grid.length;
     const gw = grid[0].length;
+    const ow = incOuterWall ? 1 : 0;
     let walls = [];
-    for (let y = 1; y < gh - 1; y++) {
-        for (let x = 1; x < gw - 1; x++) {
-            if (cellIs(grid[y][x], SOLID)) {
+    for (let y = 1 - ow; y < gh - 1 + ow; y++) {
+        for (let x = 1 - ow; x < gw - 1 + ow; x++) {
+            if (predicate(x, y)) {
                 walls.push(createVector(x, y));
             }
         }
