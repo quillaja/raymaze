@@ -233,7 +233,7 @@ function createBackgroundImage(width, height, barHeight) {
  */
 function createGridAndPlaceCam() {
     grid = new Grid(gridw, gridh, makeGridColor(0, 200, 200));
-    let pos = findPlaceNotInWall(grid);
+    let pos = findPlaceNotInWall(grid.data);
     cam = new Camera(pos.x, pos.y);
 }
 
@@ -463,28 +463,14 @@ function makeExteriorWalls(grid, color) {
  * @param {number} color 
  */
 function placeExit(grid, color) {
-    const gw = grid[0].length;
-    const gh = grid.length;
+    // start not in wall. take random walk until hitting a wall.
+    let pos = findPlaceNotInWall(grid);
     let inWall = false;
-    let pos = createVector();
-    for (let tries = 0; tries < 20; tries++) {
-        // find a non-solid cell
-        while (!inWall) {
-            pos.x = Math.floor(Math.random() * (gw - 2) + 1);
-            pos.y = Math.floor(Math.random() * (gh - 2) + 1);
-            inWall = cellIs(grid[pos.y][pos.x], SOLID);
-        }
-        // check that at least one neighbor is not solid
-        for (let y = -1; y <= 1; y += 2) {
-            for (let x = -1; x <= 1; x += 2) {
-                if (!cellIs(grid[constrain(pos.y + y, 0, gh)][constrain(pos.x + x, 0, gw)], SOLID)) {
-                    grid[pos.y][pos.x] = EXIT | color;
-                    return;
-                }
-            }
-        }
+    while (!inWall) {
+        takeRandomStep(pos);
+        inWall = cellIs(grid[Math.floor(pos.y)][Math.floor(pos.x)], SOLID);
     }
-    console.log("gave up on exit");
+    grid[Math.floor(pos.y)][Math.floor(pos.x)] = EXIT | color;
 }
 
 /**
@@ -530,20 +516,7 @@ function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
         let pos = createVector(Math.floor(random(1, w)), Math.floor(random(1, h)));
         for (let step = 0; step < walkLen; step++) {
             grid[pos.y][pos.x] = NONE;
-            switch (Math.floor(random(4))) {
-                case 0:
-                    pos.x++;
-                    break;
-                case 1:
-                    pos.x--;
-                    break;
-                case 2:
-                    pos.y++;
-                    break;
-                case 3:
-                    pos.y--;
-                    break;
-            }
+            takeRandomStep(pos);
             pos.x = constrain(pos.x, 1, w - 1);
             pos.y = constrain(pos.y, 1, h - 1);
         }
@@ -554,15 +527,39 @@ function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
 
 /**
  * 
- * @param {Grid} grid 
+ * @param {p5.Vector} pos 
+ */
+function takeRandomStep(pos) {
+    switch (Math.floor(random(4))) {
+        case 0:
+            pos.x++;
+            break;
+        case 1:
+            pos.x--;
+            break;
+        case 2:
+            pos.y++;
+            break;
+        case 3:
+            pos.y--;
+            break;
+    }
+    return pos;
+}
+
+/**
+ * 
+ * @param {number[][]} grid 
  */
 function findPlaceNotInWall(grid) {
+    const gw = grid[0].length;
+    const gh = grid.length;
     let inWall = true;
     let pos = createVector();
     while (inWall) {
-        pos.x = Math.random() * (grid.width - 2) + 1;
-        pos.y = Math.random() * (grid.height - 2) + 1;
-        inWall = grid.match(pos.x, pos.y, SOLID);
+        pos.x = Math.random() * (gw - 2) + 1;
+        pos.y = Math.random() * (gh - 2) + 1;
+        inWall = cellIs(grid[Math.floor(pos.y)][Math.floor(pos.x)], SOLID);
     }
     return pos;
 }
