@@ -409,7 +409,7 @@ class Grid {
     constructor(width, height, wallColor = COLOR_W, exitColor = COLOR_G) {
         this.width = width;
         this.height = height;
-        this.data = Math.random() < 0.5 ? generateGridRandomWalks(width, height, wallColor, 15, 60) : generateGridRandom(width, height, wallColor);
+        this.data = generateGridWilson(width, height, wallColor);//generateGridRandomWalks(width, height, wallColor, 15, 60) : generateGridRandom(width, height, wallColor);
         makeExteriorWalls(this.data, wallColor);
         placeExit(this.data, exitColor);
     }
@@ -494,6 +494,23 @@ function generateGridRandom(w, h, wallColor,
 }
 
 /**
+ * 
+ * @param {number} w 
+ * @param {number} h 
+ * @param {number} wallColor 
+ */
+function generateSolidGrid(w, h, wallColor) {
+    let grid = new Array(h);
+    for (let y = 0; y < grid.length; y++) {
+        grid[y] = new Array(w);
+        for (let x = 0; x < grid[y].length; x++) {
+            grid[y][x] = SOLID | wallColor;
+        }
+    }
+    return grid;
+}
+
+/**
  *  
  * @param {number} w 
  * @param {number} h 
@@ -503,13 +520,7 @@ function generateGridRandom(w, h, wallColor,
  */
 function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
     // create grid completely solid
-    let grid = new Array(h);
-    for (let y = 0; y < grid.length; y++) {
-        grid[y] = new Array(w);
-        for (let x = 0; x < grid[y].length; x++) {
-            grid[y][x] = SOLID | wallColor;
-        }
-    }
+    let grid = generateSolidGrid(w, h, wallColor);
 
     // carve out numWalks random walks
     for (let n = 0; n < numWalks; n++) {
@@ -520,6 +531,54 @@ function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
             pos.x = constrain(pos.x, 1, w - 1);
             pos.y = constrain(pos.y, 1, h - 1);
         }
+    }
+
+    return grid;
+}
+
+/**
+ * create a grid/maze using wilson's algorithm
+ * @param {number} w 
+ * @param {number} h 
+ * @param {number} wallColor 
+ */
+function generateGridWilson(w, h, wallColor, numWalks =100) {
+    // create completely solid grid
+    let grid = generateSolidGrid(w, h, wallColor);
+
+    let pos = findPlaceInWall(grid);
+    let visted = [];
+    // while (pos != undefined) {
+    for (let i = 0; i < numWalks && pos != undefined; i++) {
+        // 1. choose place in wall
+        grid[pos.y][pos.x] = NONE;
+
+        let takingAWalk = true;
+        while (takingAWalk) {
+            // 2. take random walk, keeping list of visited cells
+            takeRandomStep(pos);
+            pos.x = constrain(pos.x, 1, w - 1); // don't enter outer wall
+            pos.y = constrain(pos.y, 1, h - 1);
+            visted.push(pos.copy());
+            // 3. if visit a cell that is NOT a wall, stop
+            if (!cellIs(grid[pos.y][pos.x], SOLID)) {
+                takingAWalk = false;
+            } else {
+                // 4. if visit a previously visted cell, delete the list of the loop
+                let prev = visted.findIndex((p) => pos.x == p.x && pos.y == p.y);
+                if (prev > -1 && prev != visted.length - 1) {
+                    visted = visted.slice(0, prev + 1); // keep 0-prev. discards looped walk path
+                }
+            }
+        }
+
+        // 4. use the generated list of visited cells to 'carve' path.
+        for (const p of visted) {
+            grid[p.y][p.x] = NONE;
+        }
+        // 5. go to 1
+        visted.length = 0; // clear array
+        pos = findPlaceInWall(grid);
     }
 
     return grid;
@@ -550,18 +609,39 @@ function takeRandomStep(pos) {
 /**
  * 
  * @param {number[][]} grid 
+ * @returns {p5.Vector|undefined} position or undefined
  */
 function findPlaceNotInWall(grid) {
     const gw = grid[0].length;
     const gh = grid.length;
-    let inWall = true;
-    let pos = createVector();
-    while (inWall) {
-        pos.x = Math.random() * (gw - 2) + 1;
-        pos.y = Math.random() * (gh - 2) + 1;
-        inWall = cellIs(grid[Math.floor(pos.y)][Math.floor(pos.x)], SOLID);
+    let halls = [];
+    for (let y = 1; y < gh - 1; y++) {
+        for (let x = 1; x < gw - 1; x++) {
+            if (!cellIs(grid[y][x], SOLID)) {
+                halls.push(createVector(x + 0.5, y + 0.5)); // add 0.5 to get in middle of cell
+            }
+        }
     }
-    return pos;
+    return random(halls);
+}
+
+/**
+ * 
+ * @param {number[][]} grid 
+ * @returns {p5.Vector|undefined} position or undefined if there are no walls (other than exterior)
+ */
+function findPlaceInWall(grid) {
+    const gh = grid.length;
+    const gw = grid[0].length;
+    let walls = [];
+    for (let y = 1; y < gh - 1; y++) {
+        for (let x = 1; x < gw - 1; x++) {
+            if (cellIs(grid[y][x], SOLID)) {
+                walls.push(createVector(x, y));
+            }
+        }
+    }
+    return random(walls);
 }
 
 /**
