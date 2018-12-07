@@ -232,7 +232,7 @@ function createBackgroundImage(width, height, barHeight) {
  * initialize system.
  */
 function createGridAndPlaceCam() {
-    grid = new Grid(gridw, gridh, makeGridColor(0, 2, 2));
+    grid = new Grid(gridw, gridh, makeGridColor(0, 200, 200));
     let pos = findPlaceNotInWall(grid);
     cam = new Camera(pos.x, pos.y);
 }
@@ -574,9 +574,9 @@ function findPlaceNotInWall(grid) {
  */
 function colorFromCell(cell) {
     return createVector(
-        255 * ((cell & COLOR_R) >> 4) / 3,
-        255 * ((cell & COLOR_G) >> 2) / 3,
-        255 * (cell & COLOR_B) / 3
+        (cell & COLOR_R) >> R_SHIFT,
+        (cell & COLOR_G) >> G_SHIFT,
+        (cell & COLOR_B) >> B_SHIFT
     );
 }
 
@@ -586,21 +586,29 @@ function vecToColor(v) {
 
 /**
  * 
- * @param {number} r 0-3
+ * @param {number} r 
  * @param {number} g 0-3
  * @param {number} b 0-3
  */
 function makeGridColor(r, g, b) {
-    return r << 4 | g << 2 | b;
+    return r << R_SHIFT | g << G_SHIFT | b << B_SHIFT;
 }
 
 
 // masks
+// cells are 32 bits (4 bytes).
+// the low byte is flags.
+// the high 3 bytes are for color or texture info.
+//
 const NONE = 0;
-const SOLID = 0b10000000;
-const ENTRY = 0b01000000;
+const SOLID = 0b00000001;
+const ENTRY = 0b00000010;
 const EXIT = SOLID | ENTRY;
-const COLOR_R = 0b00110000;
-const COLOR_G = 0b00001100;
-const COLOR_B = 0b00000011;
+
+const R_SHIFT = 24;
+const G_SHIFT = 16;
+const B_SHIFT = 8;
+const COLOR_R = 0xFF << R_SHIFT;
+const COLOR_G = 0xFF << G_SHIFT;
+const COLOR_B = 0xFF << B_SHIFT;
 const COLOR_W = COLOR_R | COLOR_G | COLOR_B;
