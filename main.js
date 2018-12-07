@@ -542,7 +542,7 @@ function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
  * @param {number} h 
  * @param {number} wallColor 
  */
-function generateGridWilson(w, h, wallColor, numWalks =100) {
+function generateGridWilson(w, h, wallColor, numWalks = 100) {
     // create completely solid grid
     let grid = generateSolidGrid(w, h, wallColor);
 
@@ -576,6 +576,14 @@ function generateGridWilson(w, h, wallColor, numWalks =100) {
         for (const p of visted) {
             grid[p.y][p.x] = NONE;
         }
+        // for (let i = 0; i < visted.length - 1; i++) {
+        //     let d = p5.Vector.sub(visted[i + 1], visted[i]);
+        //     for (let y = 0; y <= d.y; y++) {
+        //         for (let x = 0; x <= d.x; x++) {
+        //             grid[visted[i].y + y][visted[i].x + x] = NONE;
+        //         }
+        //     }
+        // }
         // 5. go to 1
         visted.length = 0; // clear array
         pos = findPlaceInWall(grid);
@@ -588,19 +596,19 @@ function generateGridWilson(w, h, wallColor, numWalks =100) {
  * 
  * @param {p5.Vector} pos 
  */
-function takeRandomStep(pos) {
+function takeRandomStep(pos, stepsize = 1) {
     switch (Math.floor(random(4))) {
         case 0:
-            pos.x++;
+            pos.x += stepsize;
             break;
         case 1:
-            pos.x--;
+            pos.x -= stepsize;
             break;
         case 2:
-            pos.y++;
+            pos.y += stepsize;
             break;
         case 3:
-            pos.y--;
+            pos.y -= stepsize;
             break;
     }
     return pos;
