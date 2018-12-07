@@ -55,10 +55,10 @@ function setup() {
 function draw() {
 
     if (keyIsDown(LEFT_ARROW) || (mouseIsPressed && mouseX < width / 3)) {
-        cam.rotateCCW();
+        cam.rotateCW();
     }
     if (keyIsDown(RIGHT_ARROW) || (mouseIsPressed && mouseX >= 2 / 3 * width)) {
-        cam.rotateCW();
+        cam.rotateCCW();
     }
     if (keyIsDown(UP_ARROW) || (mouseIsPressed && mouseY < height / 3)) {
         cam.moveForward();
@@ -76,8 +76,7 @@ function draw() {
         if (toggles.mapView) {
             // 2d map view
             push();
-            translate(0, height);
-            scale(scalef, -scalef);
+            scale(scalef, scalef);
 
             noStroke();
             for (let y = 0; y < grid.height; y++) {
@@ -179,7 +178,7 @@ function calculateRenderingParams() {
         scalef = Math.floor(width / gridw);
     }
 
-    raywidth = width / 400; // set raywidth according to width of screen
+    raywidth = width / 300; // set raywidth according to width of screen
     raywidth *= height / width; // apparently the KEY was h/w instead of w/h??
     dirs = new Array(Math.round(width / raywidth));
 }
@@ -243,8 +242,8 @@ class Camera {
     getRays(directions) {
         // use length of directions list to determine how many to "cast"
         let n = directions.length;
-        let start = p5.Vector.fromAngle(this.rot + this.fov / 2);
-        let end = p5.Vector.fromAngle(this.rot - this.fov / 2);
+        let start = p5.Vector.fromAngle(this.rot - this.fov / 2);
+        let end = p5.Vector.fromAngle(this.rot + this.fov / 2);
         directions[0] = start;
         for (let i = 1; i <= n - 2; i++) {
             if (!directions[i]) directions[i] = createVector();
