@@ -33,11 +33,17 @@ let dirs;
  */
 let grid;
 
+/**
+ * @type {p5.Graphics}
+ */
+let bg;
+
 const gridw = 25;
 const gridh = 25;
 
-let scalef = 1;
-let raywidth = 2; // alters number of rays used/"resolution" of walls
+// set in calculateRenderParams()
+let scalef = 1; // scales map view
+let raywidth = 0; // alters number of rays used/"resolution" of walls. 
 
 const toggles = {
     mapView: false,
@@ -45,10 +51,22 @@ const toggles = {
     statsDisplay: false,
 }
 
+const stats = {
+    fpsSum: 0,
+    fpsCount: 0,
+    msPerRay: 0,
+    msPerRaySum: 0,
+    msPerRayCount: 0,
+    tilesCheckedPerRay: 0,
+    tilesCheckedPerRaySum: 0,
+    tilesCheckedPerRayCount: 0,
+}
+
 function setup() {
     createCanvas(windowWidth, windowHeight - 5);
 
     calculateRenderingParams();
+
     createGridAndPlaceCam();
 }
 
@@ -72,6 +90,7 @@ function draw() {
     if (cam.hasMoved() || toggles.viewChanged) {
         background(0);
         toggles.viewChanged = false;
+        stats.tilesCheckedPerRay = 0;
 
         if (toggles.mapView) {
             // 2d map view
@@ -104,22 +123,13 @@ function draw() {
         } else {
             // 3d view
             push();
-            rectMode(CENTER);
-            translate(0, height / 2);
 
             // draw ceiling and floor
-            const maxh = (height / 2) / raywidth;
-            for (let h = 0; h < maxh; h++) {
-                let c = 100 * (h / maxh);
-                fill(c);
-                stroke(c);
-                // floor
-                rect(width / 2, (h + 0.5) * raywidth, width, raywidth);
-                // ceiling
-                rect(width / 2, -(h + 0.5) * raywidth, width, raywidth);
-            }
+            image(bg, 0, 0);
 
             // draw walls
+            rectMode(CENTER);
+            translate(0, height / 2);
             cam.getRays(dirs);
             const lookx = Math.cos(cam.rot); // calculate look direction vector
             const looky = Math.sin(cam.rot);
@@ -137,18 +147,38 @@ function draw() {
             pop();
         }
 
+        stats.msPerRay /= dirs.length;
+        stats.tilesCheckedPerRay /= dirs.length;
+        stats.fpsSum += frameRate();
+        stats.fpsCount++;
+        stats.tilesCheckedPerRaySum += stats.tilesCheckedPerRay;
+        stats.tilesCheckedPerRayCount++;
+        stats.msPerRaySum += stats.msPerRay;
+        stats.msPerRayCount++;
+
         if (toggles.statsDisplay) {
             textFont("monospace");
             fill(255);
             textSize(15);
-            text(`FPS: ${frameRate().toFixed(0)}`, 10, 15);
+            text("Statistics", 10, row(0));
+            text(`AvgFps:     ${(stats.fpsSum / stats.fpsCount).toFixed(0)}`, 10, row(1));
             let g = getCellCoords(cam.pos);
-            text(`CELL: ${g.x.toFixed(0)}, ${g.y.toFixed(0)} POS: ${cam.pos.x.toFixed(1)}, ${cam.pos.y.toFixed(1)}`, 10, 30);
-            text(`RAYS: ${dirs.length} RWIDTH: ${raywidth.toFixed(1)}`, 10, 45);
+            text(`Cell:       ${g.x.toFixed(0)}, ${g.y.toFixed(0)}`, 10, row(2))
+            text(`Position:   ${cam.pos.x.toFixed(1)}, ${cam.pos.y.toFixed(1)}`, 10, row(3));
+            text(`Rays:       ${dirs.length}`, 10, row(4))
+            text(`RayWidth:   ${raywidth.toFixed(1)}`, 10, row(5));
+            text(`TimePRms:   ${stats.msPerRay.toPrecision(3)}`, 10, row(6));
+            text(`AvgTPRms:   ${(stats.msPerRaySum / stats.msPerRayCount).toPrecision(3)}`, 10, row(7));
+            text(`TilesChkPR: ${stats.tilesCheckedPerRay.toPrecision(3)}`, 10, row(8));
+            text(`AvgTlChkPR: ${(stats.tilesCheckedPerRaySum / stats.tilesCheckedPerRayCount).toPrecision(3)}`, 10, row(9));
         }
     }
 
 
+}
+
+function row(n) {
+    return 15 * (n + 1);
 }
 
 function keyPressed() {
@@ -163,7 +193,7 @@ function keyPressed() {
 }
 
 function windowResized() {
-    resizeCanvas(windowWidth, windowHeight - 5);
+    resizeCanvas(windowWidth, windowHeight - 5, true);
     calculateRenderingParams();
     cam = new Camera(cam.pos.x, cam.pos.y, cam.rot); // remake camera in old position
 }
@@ -178,9 +208,24 @@ function calculateRenderingParams() {
         scalef = Math.floor(width / gridw);
     }
 
-    raywidth = width / 300; // set raywidth according to width of screen
-    raywidth *= height / width; // apparently the KEY was h/w instead of w/h??
-    dirs = new Array(Math.round(width / raywidth));
+    raywidth = Math.ceil((height / width) * (width / 300)); // apparently the KEY was h/w instead of w/h??
+    dirs = new Array(Math.ceil(width / raywidth));
+    bg = createBackgroundImage(width, height, 1);
+}
+
+function createBackgroundImage(width, height, barHeight) {
+    let bg = createGraphics(width, height);
+    bg.background(0);
+    const hh = height / 2;
+    const maxh = hh / barHeight
+    for (let h = 0; h < maxh; h++) {
+        let c = 100 * (1 - h / maxh);
+        bg.fill(c);
+        bg.stroke(c);
+        bg.rect(0, hh, width, -(hh - h * barHeight)); // ceiling
+        bg.rect(0, hh, width, hh - h * barHeight); // floor
+    }
+    return bg;
 }
 
 /**
@@ -298,6 +343,7 @@ class Hit {
  * @param {Grid} grid 
  */
 function marchRay(hit, pos, dir, grid) {
+    let starttime = Date.now();
     let posOrig = pos;
     pos = pos.copy();
     let wall = grid.match(pos.x, pos.y, SOLID);
@@ -335,12 +381,16 @@ function marchRay(hit, pos, dir, grid) {
         pos.x += dir.x * 0.00000001;
         pos.y += dir.y * 0.00000001;
         wall = grid.match(pos.x, pos.y, SOLID);
+
+        stats.tilesCheckedPerRay++;
     }
 
     hit.pos.set(pos);
     hit.cell = grid.cell(pos.x, pos.y);
     hit.d = p5.Vector.dist(posOrig, pos);
     hit.gridpos = getCellCoords(pos);
+
+    stats.msPerRay += Date.now() - starttime;
 
     return hit;
 }
