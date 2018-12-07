@@ -47,6 +47,8 @@ let raywidth = 0; // alters number of rays used/"resolution" of walls.
 
 const toggles = {
     mapView: false,
+    hideMaze: true,
+    showRays: false,
     viewChanged: true,
     statsDisplay: false,
 }
@@ -92,6 +94,8 @@ function draw() {
         toggles.viewChanged = false;
         stats.tilesCheckedPerRay = 0;
 
+        grid.unhideCell(cam.pos.x, cam.pos.y);
+
         if (toggles.mapView) {
             // 2d map view
             push();
@@ -100,7 +104,8 @@ function draw() {
             noStroke();
             for (let y = 0; y < grid.height; y++) {
                 for (let x = 0; x < grid.width; x++) {
-                    if (grid.match(x, y, SOLID)) {
+                    if (grid.match(x, y, SOLID) ||
+                        (toggles.hideMaze && grid.match(x, y, HIDDEN))) {
                         let c = vecToColor(colorFromCell(grid.cell(x, y)));
                         fill(c);
                         rect(x, y, 1, 1);
@@ -111,13 +116,21 @@ function draw() {
             strokeWeight(0.01);
             noFill();
 
-            let hit = new Hit();
-            for (const dir of cam.getRays(dirs)) {
-                stroke(0, 0, 255);
-                line(cam.pos.x, cam.pos.y, cam.pos.x + dir.x, cam.pos.y + dir.y);
-                marchRay(hit, cam.pos, dir, grid)
+            if (toggles.showRays) {
+                let hit = new Hit();
+                for (const dir of cam.getRays(dirs)) {
+                    stroke(0, 0, 255);
+                    line(cam.pos.x, cam.pos.y, cam.pos.x + dir.x, cam.pos.y + dir.y);
+                    marchRay(hit, cam.pos, dir, grid)
+                    stroke(0, 255, 0);
+                    ellipse(hit.pos.x, hit.pos.y, 0.1);
+                }
+            } else {
+                fill(0, 0, 255);
+                ellipse(cam.pos.x, cam.pos.y, 0.4);
                 stroke(0, 255, 0);
-                ellipse(hit.pos.x, hit.pos.y, 0.1);
+                strokeWeight(0.08);
+                line(cam.pos.x, cam.pos.y, cam.pos.x + Math.cos(cam.rot), cam.pos.y + Math.sin(cam.rot));
             }
             pop();
         } else {
@@ -188,6 +201,11 @@ function keyPressed() {
     }
     if (keyCode === 83) { // s key
         toggles.statsDisplay = !toggles.statsDisplay;
+        toggles.showRays = !toggles.showRays; // TODO: piggyback for now
+        toggles.viewChanged = true;
+    }
+    if (keyCode === 72) { // h key
+        toggles.hideMaze = !toggles.hideMaze;
         toggles.viewChanged = true;
     }
 }
@@ -412,6 +430,7 @@ class Grid {
         this.data = generateGridWilson(width, height, wallColor);//generateGridRandomWalks(width, height, wallColor, 15, 60) : generateGridRandom(width, height, wallColor);
         makeExteriorWalls(this.data, wallColor);
         placeExit(this.data, exitColor);
+        hideMazePassages(this.data, wallColor);
     }
 
     /**
@@ -428,6 +447,12 @@ class Grid {
 
     match(x, y, flags) {
         return cellIs(this.cell(x, y), flags);
+    }
+
+    unhideCell(x, y) {
+        let gridx = Math.floor(x);
+        let gridy = Math.floor(y);
+        this.data[gridy][gridx] &= ~HIDDEN; // unset hidden flag.
     }
 }
 
@@ -453,6 +478,21 @@ function makeExteriorWalls(grid, color) {
         } else {
             grid[y][0] = SOLID | color;
             grid[y][grid[y].length - 1] = SOLID | color;
+        }
+    }
+}
+
+/**
+ * 
+ * @param {number[][]} grid 
+ */
+function hideMazePassages(grid, wallColor) {
+    // TODO: i could just set and unset the color. better? worse?
+    for (let y = 1; y < grid.length - 1; y++) {
+        for (let x = 1; x < grid[y].length - 1; x++) {
+            if (!cellIs(grid[y][x], SOLID)) {
+                grid[y][x] |= HIDDEN | wallColor;
+            }
         }
     }
 }
@@ -659,9 +699,9 @@ function findPlaceInWall(grid) {
  */
 function colorFromCell(cell) {
     return createVector(
-        (cell & COLOR_R) >> R_SHIFT,
-        (cell & COLOR_G) >> G_SHIFT,
-        (cell & COLOR_B) >> B_SHIFT
+        (cell & COLOR_R) >>> R_SHIFT,
+        (cell & COLOR_G) >>> G_SHIFT,
+        (cell & COLOR_B) >>> B_SHIFT
     );
 }
 
@@ -689,6 +729,7 @@ const NONE = 0;
 const SOLID = 0b00000001;
 const ENTRY = 0b00000010;
 const EXIT = SOLID | ENTRY;
+const HIDDEN = 0b00000100;
 
 const R_SHIFT = 24;
 const G_SHIFT = 16;
