@@ -38,8 +38,8 @@ let grid;
  */
 let bg;
 
-const gridw = 25;
-const gridh = 25;
+const gridw = 15;
+const gridh = 15;
 
 // set in calculateRenderParams()
 let scalef = 1; // scales map view
@@ -220,9 +220,9 @@ function windowResized() {
  */
 function calculateRenderingParams() {
     if (width > height) {
-        scalef = Math.floor(height / gridh);
+        scalef = Math.ceil(height / (gridh + 1));
     } else {
-        scalef = Math.floor(width / gridw);
+        scalef = Math.ceil(width / (gridw + 1));
     }
 
     raywidth = Math.ceil((height / width) * (width / 300)); // apparently the KEY was h/w instead of w/h??
@@ -424,12 +424,12 @@ function getCellCoords(pos) {
 
 class Grid {
     constructor(width, height, wallColor = COLOR_W, exitColor = COLOR_G) {
-        this.width = width;
-        this.height = height;
         this.data = generateGridWilson(width, height, wallColor);//generateGridRandomWalks(width, height, wallColor, 15, 60) : generateGridRandom(width, height, wallColor);
         makeExteriorWalls(this.data, wallColor);
         placeExit(this.data, exitColor);
         hideMazePassages(this.data, wallColor);
+        this.height = this.data.length;
+        this.width = this.data[0].length;
     }
 
     /**
