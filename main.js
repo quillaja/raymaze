@@ -51,6 +51,7 @@ const toggles = {
     showRays: false,
     viewChanged: true,
     statsDisplay: false,
+    raysMethod: "lerp",
 }
 
 const stats = {
@@ -183,6 +184,8 @@ function draw() {
             text(`AvgTPRms:   ${(stats.msPerRaySum / stats.msPerRayCount).toPrecision(3)}`, 10, row(7));
             text(`TilesChkPR: ${stats.tilesCheckedPerRay.toPrecision(3)}`, 10, row(8));
             text(`AvgTlChkPR: ${(stats.tilesCheckedPerRaySum / stats.tilesCheckedPerRayCount).toPrecision(3)}`, 10, row(9));
+            text(`RaysMethod: ${toggles.raysMethod}`, 10, row(10));
+            text(`Fov(deg):   ${(cam.fov * (180 / PI)).toFixed(1)}`, 10, row(11));
         }
     }
 
@@ -207,6 +210,9 @@ function keyPressed() {
         toggles.hideMaze = !toggles.hideMaze;
         toggles.viewChanged = true;
     }
+    if (keyCode === SHIFT) {
+        toggles.raysmethod = toggles.raysmethod == "slerp" ? "lerp" : "slerp";
+    }
 }
 
 function windowResized() {
@@ -227,6 +233,7 @@ function calculateRenderingParams() {
 
     raywidth = Math.ceil((height / width) * (width / 300)); // apparently the KEY was h/w instead of w/h??
     dirs = new Array(Math.ceil(width / raywidth));
+    for (let i = 0; i < dirs.length; i++) { dirs[i] = createVector(); }
     bg = createBackgroundImage(width, height, 1);
 }
 
@@ -304,17 +311,26 @@ class Camera {
     getRays(directions) {
         // use length of directions list to determine how many to "cast"
         let n = directions.length;
-        let start = p5.Vector.fromAngle(this.rot - this.fov / 2);
-        let end = p5.Vector.fromAngle(this.rot + this.fov / 2);
-        directions[0] = start;
-        for (let i = 1; i <= n - 2; i++) {
-            if (!directions[i]) directions[i] = createVector();
-            directions[i].x = lerp(start.x, end.x, i / (n - 1));
-            directions[i].y = lerp(start.y, end.y, i / (n - 1));
-            directions[i].normalize();
+        if (toggles.raysmethod == "lerp") { // lerp
+            let start = p5.Vector.fromAngle(this.rot - this.fov / 2);
+            let end = p5.Vector.fromAngle(this.rot + this.fov / 2);
+            directions[0] = start;
+            for (let i = 1; i <= n - 2; i++) {
+                directions[i].x = lerp(start.x, end.x, i / (n - 1));
+                directions[i].y = lerp(start.y, end.y, i / (n - 1));
+                directions[i].normalize();
+            }
+            directions[n - 1] = end;
+            return directions;
+        } else { //slerp(ish)
+            const dtheta = this.fov / (n - 1);
+            for (let i = 0; i < n; i++) {
+                let theta = (this.rot - this.fov / 2) + i * dtheta;
+                directions[i].x = Math.cos(theta);
+                directions[i].y = Math.sin(theta);
+            }
+            return directions;
         }
-        directions[n - 1] = end;
-        return directions;
     }
 
     /**
