@@ -38,6 +38,11 @@ let grid;
  */
 let bg;
 
+/**
+ * @type {MessageQueue}
+ */
+let msgs;
+
 const gridw = 15;
 const gridh = 15;
 
@@ -70,6 +75,10 @@ function setup() {
 
     calculateRenderingParams();
     createGridAndPlaceCam();
+    msgs = new MessageQueue();
+    msgs.add(8, "press space to toggle 3D or map view");
+    msgs.add(8, "press arrow keys to move");
+    msgs.add(8, "find the green exit");
 }
 
 function draw() {
@@ -187,9 +196,18 @@ function draw() {
             text(`RaysMethod: ${toggles.raysMethod}`, 10, row(10));
             text(`Fov(deg):   ${(cam.fov * (180 / PI)).toFixed(1)}`, 10, row(11));
         }
+
     }
 
-
+    // display messages
+    push();
+    textFont("monospace");
+    textSize(24);
+    textAlign(CENTER);
+    fill(255);
+    stroke(0);
+    msgs.show(width / 2, height - 50);
+    pop();
 }
 
 function row(n) {
@@ -211,7 +229,7 @@ function keyPressed() {
         toggles.viewChanged = true;
     }
     if (keyCode === SHIFT) {
-        toggles.raysmethod = toggles.raysmethod == "slerp" ? "lerp" : "slerp";
+        toggles.raysMethod = toggles.raysMethod == "slerp" ? "lerp" : "slerp";
     }
 }
 
@@ -270,7 +288,7 @@ class Camera {
         this.fov = fov * (width / height); // scale ideal fov by aspect ratio
     }
 
-    rotateCCW(speed = PI / 100) {
+    rotateCCW(speed = PI / 180) {
         this.rot += speed;
         if (this.rot > TWO_PI) {
             this.rot -= TWO_PI; // keep in [0,2PI]
@@ -278,7 +296,7 @@ class Camera {
         this.moved = true;
     }
 
-    rotateCW(speed = PI / 100) {
+    rotateCW(speed = PI / 180) {
         this.rot -= speed;
         if (this.rot < 0) {
             this.rot = TWO_PI - this.rot; // keep in [0,2PI]
@@ -311,7 +329,7 @@ class Camera {
     getRays(directions) {
         // use length of directions list to determine how many to "cast"
         let n = directions.length;
-        if (toggles.raysmethod == "lerp") { // lerp
+        if (toggles.raysMethod == "lerp") { // lerp
             let start = p5.Vector.fromAngle(this.rot - this.fov / 2);
             let end = p5.Vector.fromAngle(this.rot + this.fov / 2);
             directions[0] = start;
@@ -817,6 +835,30 @@ function vecToColor(v) {
  */
 function makeGridColor(r, g, b) {
     return r << R_SHIFT | g << G_SHIFT | b << B_SHIFT;
+}
+
+class MessageQueue {
+    constructor() {
+        this.queue = [];
+    }
+
+    add(duration, ...messages) {
+        for (const m of messages) {
+            this.queue.push({ d: duration, m: m });
+        }
+    }
+
+    show(x, y) {
+        // subract time and remove expired messages
+        const dt = Math.min(1 / frameRate(), 1 / 120);
+        this.queue.forEach(v => v.d -= dt);
+        this.queue = this.queue.filter(v => v.d > 0);
+        // display remaining messages in the order they were enqueued
+        const tsize = textSize();
+        for (let i = 0; i < this.queue.length; i++) {
+            text(this.queue[i].m, x, y - i * tsize); // TODO: make an option to display oldest on top or bottom
+        }
+    }
 }
 
 
