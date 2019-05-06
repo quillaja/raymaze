@@ -1,48 +1,44 @@
-
-let griddata = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
-    [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
-    [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
-    [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]];
-
+/**
+ * This p5.js sketch creates a maze and renders it in 3D using a form of "raycasting"
+ * similar to the method used in Wolfenstein 3D by id Software. It can also
+ * display the maze from a top-down 2D map-perspective.
+ * 
+ * Originally written in December 2018 by Ben (quillaja).
+ * Live demo at: http://quillaja.net/raymaze/sketch.html
+ * Github: https://github.com/quillaja/raymaze
+ */
 
 /**
+ * The camera, which is the player's point of view.
  * @type {Camera}
  */
 let cam;
 /**
+ * List of direction rays to sample.
  * @type {p5.Vector[]}
  */
 let dirs;
 
 /**
+ * The maze information.
  * @type {Grid}
  */
 let grid;
 
 /**
+ * Image used as the maze background.
  * @type {p5.Graphics}
  */
 let bg;
 
 /**
+ * Mechanism to display messages on the screen for a period of time.
  * @type {MessageQueue}
  */
 let msgs;
 
+// horizontal and vertical size of the maze.
+// used in calcuateRenderParams()
 const gridw = 15;
 const gridh = 15;
 
@@ -50,6 +46,7 @@ const gridh = 15;
 let scalef = 1; // scales map view
 let raywidth = 0; // alters number of rays used/"resolution" of walls. 
 
+// A list of options that can be turned on and off (generally by the player).
 const toggles = {
     mapView: false,
     hideMaze: true,
@@ -59,6 +56,7 @@ const toggles = {
     raysMethod: "lerp",
 }
 
+// object for storing program statistics.
 const stats = {
     fpsSum: 0,
     fpsCount: 0,
@@ -70,19 +68,27 @@ const stats = {
     tilesCheckedPerRayCount: 0,
 }
 
+/**
+ * Set up the sketch.
+ */
 function setup() {
     createCanvas(windowWidth, windowHeight - 5);
 
     calculateRenderingParams();
     createGridAndPlaceCam();
     msgs = new MessageQueue();
+    msgs.add(8, "press s to toggle statistics");
     msgs.add(8, "press space to toggle 3D or map view");
     msgs.add(8, "press arrow keys to move");
     msgs.add(8, "find the green exit");
 }
 
+/**
+ * Render the sketch.
+ */
 function draw() {
 
+    // move player
     if (keyIsDown(LEFT_ARROW) || (mouseIsPressed && mouseX < width / 3)) {
         cam.rotateCW();
     }
@@ -96,8 +102,11 @@ function draw() {
         cam.moveBackward();
     }
 
+    // check and correct player intersection with walls
     cam.checkCollisions(grid);
 
+    // draw view
+    // only draw if necessary to help maintain good framerate
     if (cam.hasMoved() || toggles.viewChanged) {
         background(0);
         toggles.viewChanged = false;
@@ -105,6 +114,8 @@ function draw() {
 
         grid.unhideCell(cam.pos.x, cam.pos.y);
 
+        // Draw either the map view or 3d "raycast" view
+        // based on the player-controlled toggle.
         if (toggles.mapView) {
             // 2d map view
             push();
@@ -125,6 +136,7 @@ function draw() {
             strokeWeight(0.01);
             noFill();
 
+            // either draw the actual rays traced or a simple directional indicator.
             if (toggles.showRays) {
                 let hit = new Hit();
                 for (const dir of cam.getRays(dirs)) {
@@ -152,13 +164,13 @@ function draw() {
             // draw walls
             rectMode(CENTER);
             translate(0, height / 2);
-            cam.getRays(dirs);
+            cam.getRays(dirs); // get a list of directional rays to cast
             const lookx = Math.cos(cam.rot); // calculate look direction vector
             const looky = Math.sin(cam.rot);
-            let hit = new Hit();
+            let hit = new Hit(); // create only one Hit obj and reuse to reduce garbage generation.
             for (let i = 0; i < dirs.length; i++) {
                 let dir = dirs[i];
-                marchRay(hit, cam.pos, dir, grid);
+                marchRay(hit, cam.pos, dir, grid); // do the "raycast"
                 // dot product ray dir with look dir to scale d so straight lines look straight.
                 let d = hit.d * (dir.x * lookx + dir.y * looky);
                 let c = vecToColor(colorFromCell(hit.cell).div(Math.max(1, d)));
@@ -169,6 +181,7 @@ function draw() {
             pop();
         }
 
+        // update and show statistics
         stats.msPerRay /= dirs.length;
         stats.tilesCheckedPerRay /= dirs.length;
         stats.fpsSum += frameRate();
@@ -210,10 +223,18 @@ function draw() {
     pop();
 }
 
+/**
+ * a simple function to calculate the y-position of text based on a "row".
+ * used in displaying statistics.
+ * @param {number} n row number
+ */
 function row(n) {
     return 15 * (n + 1);
 }
 
+/**
+ * handle key presses that control toggle-able options.
+ */
 function keyPressed() {
     if (keyCode === 32) { // space
         toggles.mapView = !toggles.mapView;
@@ -233,6 +254,9 @@ function keyPressed() {
     }
 }
 
+/**
+ * respond to window resized events by recalculating the rendering parameters, etc.
+ */
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight - 5, true);
     calculateRenderingParams();
@@ -255,6 +279,13 @@ function calculateRenderingParams() {
     bg = createBackgroundImage(width, height, 1);
 }
 
+/**
+ * Generate the 'bg' image used as the background (floor and ceiling) of
+ * the 3D view.
+ * @param {number} width window width
+ * @param {number} height window height
+ * @param {number} barHeight 
+ */
 function createBackgroundImage(width, height, barHeight) {
     let bg = createGraphics(width, height);
     bg.background(0);
@@ -279,7 +310,18 @@ function createGridAndPlaceCam() {
     cam = new Camera(pos.x, pos.y);
 }
 
+/**
+ * Camera encapsulates the point of view of the player.
+ * Most importantly, it generates rays to cast and manages wall collision.
+ */
 class Camera {
+    /**
+     * create a camera.
+     * @param {number} x x position
+     * @param {number} y y position
+     * @param {number} rot initial angle in radians
+     * @param {number} fov desired field of view.
+     */
     constructor(x = 0, y = 0, rot = 0, fov = QUARTER_PI) {
         this.pos = createVector(x, y);
         this.prevPos = createVector();
@@ -288,6 +330,10 @@ class Camera {
         this.fov = fov * (width / height); // scale ideal fov by aspect ratio
     }
 
+    /**
+     * rotate camera counter clockwise
+     * @param {number} speed rotation speed
+     */
     rotateCCW(speed = PI / 180) {
         this.rot += speed;
         if (this.rot > TWO_PI) {
@@ -296,6 +342,10 @@ class Camera {
         this.moved = true;
     }
 
+    /**
+     * rotate camera clockwise
+     * @param {number} speed rotation speed
+     */
     rotateCW(speed = PI / 180) {
         this.rot -= speed;
         if (this.rot < 0) {
@@ -304,6 +354,10 @@ class Camera {
         this.moved = true;
     }
 
+    /**
+     * move camera forward
+     * @param {number} speed move speed
+     */
     moveForward(speed = 0.02) {
         this.prevPos.x = this.pos.x;
         this.prevPos.y = this.pos.y;
@@ -312,10 +366,19 @@ class Camera {
         this.moved = true;
     }
 
+    /**
+     * move camera backward
+     * @param {number} speed move speed
+     */
     moveBackward(speed = 0.02) {
         this.moveForward(-speed);
     }
 
+    /**
+     * check if camera has moved since the last time this method was called.
+     * this is used in the draw() function as part of check to redraw
+     * a frame or not.
+     */
     hasMoved() {
         let temp = this.moved;
         this.moved = false;
@@ -323,7 +386,17 @@ class Camera {
     }
 
     /**
+     * generate a list of direction vectors (rays) to cast from the camera
+     * out into the world. 
      * 
+     * The rays are an arc covering "FOV" radians and
+     * centered at the camera's current rotation direction (ie the direction
+     * the player is looking). 
+     * 
+     * The method can use either a vector "lerp" or 
+     * "slerp" method to generate rays, and the user can toggle this. Usually
+     * "lerp" is good enough and a little faster even though "slerp" is 
+     * technically more correct.
      * @param {p5.Vector[]} directions list contents will be overwritten
      */
     getRays(directions) {
@@ -352,7 +425,8 @@ class Camera {
     }
 
     /**
-     * 
+     * Checks for wall collision, including the EXIT. Resets the maze if
+     * the exit is found.
      * @param {Grid} grid 
      */
     checkCollisions(grid) {
@@ -365,7 +439,7 @@ class Camera {
     }
 
     /**
-     * 
+     * Does the actual work of wall collision detection and correction.
      * @param {Grid} grid 
      */
     correctWallViolation(grid) {
@@ -378,6 +452,9 @@ class Camera {
     }
 }
 
+/**
+ * Hit encapsulates the results of a ray hitting a wall.
+ */
 class Hit {
     constructor() {
         this.pos = createVector();
@@ -388,10 +465,23 @@ class Hit {
 }
 
 /**
- * @param {Hit} hit
- * @param {p5.Vector} dir 
- * @param {p5.Vector} pos 
- * @param {Grid} grid 
+ * The marchRay function uses a style of "raycasting" inspired by the 
+ * Wolfenstein 3D game--not actual ray casting in the normal sense (intersecting
+ * geometries), and not ray marching (using distance functions).
+ * 
+ * A ray moves across a regular grid of "walls" and 
+ * "free space". If the grid square is free space, the position on the opposite
+ * side of the grid square is calculated to determine which grid square the ray
+ * hits next. This process repeats until a wall is hit.
+ * 
+ * This is done basically by determining where the ray hits on the "horizontal"
+ * lines between grid cells and on the "vertical" lines between cells. The 
+ * new position is the closest of these 2 intersection points.
+ * 
+ * @param {Hit} hit the result of the cast. will be modfied by function.
+ * @param {p5.Vector} dir direction of the ray to cast
+ * @param {p5.Vector} pos starting position of the ray (camera's location)
+ * @param {Grid} grid the 'world'
  */
 function marchRay(hit, pos, dir, grid) {
     let starttime = Date.now();
@@ -399,7 +489,6 @@ function marchRay(hit, pos, dir, grid) {
     pos = pos.copy();
     let wall = grid.match(pos.x, pos.y, SOLID);
 
-    let d = 0;
     let p1 = createVector();
     let p2 = createVector();
     while (!wall) {
@@ -424,13 +513,11 @@ function marchRay(hit, pos, dir, grid) {
 
         if (p1len <= p2len) {
             pos.set(p1);
-            d = p1len;
         } else {
             pos.set(p2);
-            d = p2len;
         }
-        pos.x += dir.x * 0.00000001;
-        pos.y += dir.y * 0.00000001;
+        pos.x += dir.x * 0.00000001; // offset the new position slightly
+        pos.y += dir.y * 0.00000001; // to ensure the 'next' cell is checked.
         wall = grid.match(pos.x, pos.y, SOLID);
 
         stats.tilesCheckedPerRay++;
@@ -447,7 +534,7 @@ function marchRay(hit, pos, dir, grid) {
 }
 
 /**
- * 
+ * gets the grid cell indices from a position.
  * @param {p5.Vector} pos 
  */
 function getCellCoords(pos) {
@@ -456,9 +543,19 @@ function getCellCoords(pos) {
     return createVector(gridx, gridy);
 }
 
+/**
+ * Grid encapsulates the world. Cells are represented with a 32-bit integer
+ * value. The lowest byte is a series of bitflags indicating things such as if
+ * the cell is a wall. The higher 3 bytes are used to encode the cell's color
+ * (or perhaps texture if I had gotten that far). So there are a lot of
+ * bitwise operations performed in later grid/maze manipulation functions.
+ */
 class Grid {
+    /**
+     * creates a new grid using wilson's maze generation algorithm.
+     */
     constructor(width, height, wallColor = COLOR_W, exitColor = COLOR_G) {
-        this.data = generateGridWilson(width, height, wallColor);//generateGridRandomWalks(width, height, wallColor, 15, 60) : generateGridRandom(width, height, wallColor);
+        this.data = generateGridWilson(width, height, wallColor);
         makeExteriorWalls(this.data, wallColor);
         placeExit(this.data, exitColor);
         hideMazePassages(this.data, wallColor);
@@ -467,7 +564,7 @@ class Grid {
     }
 
     /**
-     * 
+     * Get the data associated with the cell.
      * @param {number} x 
      * @param {number} y 
      * @return {number}
@@ -478,10 +575,21 @@ class Grid {
         return this.data[gridy][gridx];
     }
 
+    /**
+     * Checks if the cell has the given flags set.
+     * @param {number} x 
+     * @param {number} y 
+     * @param {number} flags set of bitflags to test against the cell
+     */
     match(x, y, flags) {
         return cellIs(this.cell(x, y), flags);
     }
 
+    /**
+     * unsets the "hidden" flag for the cell.
+     * @param {number} x 
+     * @param {number} y 
+     */
     unhideCell(x, y) {
         let gridx = Math.floor(x);
         let gridy = Math.floor(y);
@@ -490,17 +598,18 @@ class Grid {
 }
 
 /**
- * 
- * @param {number} cell 
- * @param {number} flags 
+ * Does the actual work of checking bitflags.
+ * @param {number} cell cell's data
+ * @param {number} flags bitflags to check
  */
 function cellIs(cell, flags) {
     return (cell & flags) == flags;
 }
 
 /**
- * 
- * @param {number[][]} grid 
+ * This basically just goes around the edge of the grid and makes every
+ * cell solid.
+ * @param {number[][]} grid the 'world' grid in raw data form
  */
 function makeExteriorWalls(grid, color) {
     for (let y = 0; y < grid.length; y++) {
@@ -516,8 +625,8 @@ function makeExteriorWalls(grid, color) {
 }
 
 /**
- * 
- * @param {number[][]} grid 
+ * This basically sets the 'hidden' flag on all non-wall cells.
+ * @param {number[][]} grid the 'world' grid in raw data form
  */
 function hideMazePassages(grid, wallColor) {
     // TODO: i could just set and unset the color. better? worse?
@@ -531,9 +640,10 @@ function hideMazePassages(grid, wallColor) {
 }
 
 /**
- * 
- * @param {number[][]} grid 
- * @param {number} color 
+ * places the exit in a wall in a random location that is guaranteed to be 
+ * accessible to the player.
+ * @param {number[][]} grid the 'world' grid in raw data form.
+ * @param {number} color color of the exit
  */
 function placeExit(grid, color) {
     // start not in wall. take random walk until hitting a wall.
@@ -547,9 +657,10 @@ function placeExit(grid, color) {
 }
 
 /**
- * 
- * @param {number} w 
- * @param {number} h 
+ * Steps through each position and generates a grid cell with the value
+ * returned from function "f".
+ * @param {number} w width of grid
+ * @param {number} h height of grid
  * @param {number} wallColor
  * @param {(x,y,w,h,wc)=>number} f function returning the cell data given the x,y grid position
  * @returns {number[][]}
@@ -567,9 +678,9 @@ function generateGridRandom(w, h, wallColor,
 }
 
 /**
- * 
- * @param {number} w 
- * @param {number} h 
+ * generates a grid completely of walls
+ * @param {number} w width
+ * @param {number} h height
  * @param {number} wallColor 
  */
 function generateSolidGrid(w, h, wallColor) {
@@ -584,12 +695,13 @@ function generateSolidGrid(w, h, wallColor) {
 }
 
 /**
- *  
- * @param {number} w 
- * @param {number} h 
+ * Generates a grid of random walks which may overlap. This is like a worm
+ * eating out passages in a block of wood.
+ * @param {number} w width
+ * @param {number} h height
  * @param {number} wallColor 
- * @param {number} walkLen
- * @param {number} numWalks 
+ * @param {number} walkLen length of the random walks to take
+ * @param {number} numWalks the number of random walks to take
  */
 function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
     // create grid completely solid
@@ -610,13 +722,18 @@ function generateGridRandomWalks(w, h, wallColor, walkLen, numWalks) {
 }
 
 /**
- * create a grid/maze using wilson's algorithm
- * @param {number} w 
- * @param {number} h 
+ * Create a grid/maze using Wilson's Algorithm. 
+ * 
+ * Wilson's basically creates a maze by taking acyclic random walks that
+ * start in a "wall" part of the maze and end in a "passage" part of the maze.
+ * For a good description of the algorithm, see: 
+ * http://weblog.jamisbuck.org/2011/1/20/maze-generation-wilson-s-algorithm
+ * @param {number} w width
+ * @param {number} h height
  * @param {number} wallColor 
  */
 function generateGridWilson(w, h, wallColor) {
-    // flags for maze
+    // flags for maze (top, right, bottom, left)
     const T = 1;
     const R = 2;
     const B = 4;
@@ -654,7 +771,7 @@ function generateGridWilson(w, h, wallColor) {
             if ((maze[pos.y][pos.x] & IN) == IN) {
                 takingAWalk = false;
             } else {
-                // 4. if visit a previously visted cell, delete the list of the loop
+                // 3.5 if visit a previously visted cell, delete the loop from the list
                 let prev = visted.findIndex((p) => pos.x == p.x && pos.y == p.y);
                 if (prev > -1 && prev < visted.length - 1) {
                     visted = visted.slice(0, prev + 1); // keep 0-prev. discards looped walk path
@@ -720,8 +837,10 @@ function generateGridWilson(w, h, wallColor) {
     // noLoop();
     // pop();
 
-    // convert maze to grid
-    // maze-index*2 + 1 = grid-index
+    // convert maze to grid by asking for a wide solid grid, then carving out
+    // grid cells where according to the connected cells in the maze.
+    // simple func to convert a maze index to a 'grid' index
+    // grid_index = maze_index*2 + 1
     let gi = (mi) => (mi * 2) + 1;
     let grid = generateSolidGrid(gi(mw), gi(mh), wallColor);
     for (let y = 0; y < mh; y++) {
@@ -748,7 +867,7 @@ function generateGridWilson(w, h, wallColor) {
 }
 
 /**
- * 
+ * Moves pos a step in the x or y direction (not diagonally)
  * @param {p5.Vector} pos 
  */
 function takeRandomStep(pos, stepsize = 1) {
@@ -770,8 +889,9 @@ function takeRandomStep(pos, stepsize = 1) {
 }
 
 /**
- * 
- * @param {number[][]} grid 
+ * finds a random location that is not in a wall by making a list
+ * of the centers of all non-wall cells, then choosing one randomly.
+ * @param {number[][]} grid raw grid data
  * @returns {p5.Vector|undefined} position or undefined
  */
 function findPlaceNotInWall(grid) {
@@ -789,8 +909,9 @@ function findPlaceNotInWall(grid) {
 }
 
 /**
- * 
- * @param {number[][]} grid 
+ * Finds a random grid cell where "predicate" evaluates to true. Does this by
+ * making a list of all matching cells and returning a random one.
+ * @param {number[][]} grid raw grid data
  * @param {boolean} incOuterWall true to include the outer most 'layer' of cells in search.
  * @param {(x:number,y:number)=>boolean} predicate func to return true if cell is to be possibly randomly selected
  * @returns {p5.Vector|undefined} position or undefined if there are no walls (other than exterior)
@@ -811,8 +932,9 @@ function randPosPredicate(grid, incOuterWall = false, predicate = (x, y) => cell
 }
 
 /**
- * 
- * @param {number} cell 
+ * Converts the 3 high bytes of a cell's data to a color (in the form of
+ * a 3d vector).
+ * @param {number} cell cell's data
  * @return {p5.Vector}
  */
 function colorFromCell(cell) {
@@ -823,12 +945,16 @@ function colorFromCell(cell) {
     );
 }
 
+/**
+ * converts a color stored in a p5.Vector to a p5.Color.
+ * @param {p5.Vector} v color as a vector
+ */
 function vecToColor(v) {
     return color(v.x, v.y, v.z);
 }
 
 /**
- * 
+ * Encodes a color (as RGB) to the 3 high bytes used in a cell's data.
  * @param {number} r 
  * @param {number} g 0-3
  * @param {number} b 0-3
@@ -837,17 +963,32 @@ function makeGridColor(r, g, b) {
     return r << R_SHIFT | g << G_SHIFT | b << B_SHIFT;
 }
 
+/**
+ * MessageQueue is used to enque messages to be shown on the screen for
+ * a certain duration.
+ */
 class MessageQueue {
     constructor() {
         this.queue = [];
     }
 
+    /**
+     * enqueues the messages to be shown for the given duration.
+     * @param {number} duration number of seconds to show messages
+     * @param  {...any} messages message(s) to show
+     */
     add(duration, ...messages) {
         for (const m of messages) {
             this.queue.push({ d: duration, m: m });
         }
     }
 
+    /**
+     * Draws the messages on the screen in the order they were enqueued. It also
+     * subtracts time from each message's duration and removes expired messages.
+     * @param {number} x x position of message
+     * @param {number} y y position of message
+     */
     show(x, y) {
         // subract time and remove expired messages
         const dt = Math.min(1 / frameRate(), 1 / 120);
