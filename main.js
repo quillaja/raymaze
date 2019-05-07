@@ -1,7 +1,9 @@
 /**
- * This p5.js sketch creates a maze and renders it in 3D using a form of "raycasting"
- * similar to the method used in Wolfenstein 3D by id Software. It can also
- * display the maze from a top-down 2D map-perspective.
+ * This p5.js sketch creates a maze and renders it in 3D using a form of 
+ * "raycasting" similar to the method used in Wolfenstein 3D by id Software. It 
+ * can also display the maze from a top-down 2D map-perspective. I was inspired
+ * to write this after watching https://www.youtube.com/watch?v=eOCQfxRQ2pY
+ * and while working on my own basic ray tracing renderer.
  * 
  * Originally written in December 2018 by Ben (quillaja).
  * Live demo at: http://quillaja.net/raymaze/sketch.html
@@ -477,6 +479,9 @@ class Hit {
  * This is done basically by determining where the ray hits on the "horizontal"
  * lines between grid cells and on the "vertical" lines between cells. The 
  * new position is the closest of these 2 intersection points.
+ * 
+ * See this video for a good explanation of how this style of raycasting works:
+ * https://www.youtube.com/watch?v=eOCQfxRQ2pY
  * 
  * @param {Hit} hit the result of the cast. will be modfied by function.
  * @param {p5.Vector} dir direction of the ray to cast
