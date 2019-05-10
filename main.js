@@ -44,6 +44,21 @@ let msgs;
 const gridw = 15;
 const gridh = 15;
 
+// colors for wall and exit.
+let wallColor;
+let exitColor;
+
+/**
+ * @type {p5.Image[]}
+ */
+let tex;
+
+/**
+ * @type {p5.Image[]}
+ */
+let imagetextures;
+
+
 // set in calculateRenderParams()
 let scalef = 1; // scales map view
 let raywidth = 0; // alters number of rays used/"resolution" of walls. 
@@ -56,6 +71,7 @@ const toggles = {
     viewChanged: true,
     statsDisplay: false,
     raysMethod: "lerp",
+    textures: true,
 }
 
 // object for storing program statistics.
@@ -68,6 +84,19 @@ const stats = {
     tilesCheckedPerRay: 0,
     tilesCheckedPerRaySum: 0,
     tilesCheckedPerRayCount: 0,
+}
+
+/**
+ * load necessary resources.
+ */
+function preload() {
+    wallColor = makeGridColor(0, 200, 200); // set global wall color vars.
+    exitColor = makeGridColor(0, 255, 0);
+    tex = [];
+    imagetextures = [];
+    imagetextures[SOLID] = loadImage("brick.gif");
+    imagetextures[EXIT] = loadImage("exit.gif");
+    tex = imagetextures;
 }
 
 /**
@@ -176,9 +205,36 @@ function draw() {
                 // dot product ray dir with look dir to scale d so straight lines look straight.
                 let d = hit.d * (dir.x * lookx + dir.y * looky);
                 let c = vecToColor(colorFromCell(hit.cell).div(Math.max(1, d)));
-                fill(c);
-                stroke(c);
-                rect((i + 0.5) * raywidth, 0, raywidth, height / d);
+
+                noStroke();
+                if (!toggles.textures) {
+                    fill(c);
+                    rect((i + 0.5) * raywidth, 0, raywidth, height / d);
+                } else {
+                    // figure out the horizontal point in the range [0,1]
+                    // at which to sample the texture
+                    let sampleX = Math.abs(hit.pos.x - Math.floor(hit.pos.x));
+                    if (sampleX < 0.001 || sampleX > 0.999) {
+                        sampleX = Math.abs(hit.pos.y - Math.floor(hit.pos.y));
+                    }
+
+                    let blocktex;
+                    if (cellIs(hit.cell, SOLID)) {
+                        blocktex = tex[SOLID];
+                    }
+                    if (cellIs(hit.cell, EXIT)) {
+                        blocktex = tex[EXIT];
+                    }
+
+                    imageMode(CENTER);
+                    image(blocktex,
+                        (i + 0.5) * raywidth, 0, raywidth, height / d,
+                        int(sampleX * blocktex.width), 0, 1, blocktex.height);
+                    // draw alpha modified black rects over the texture
+                    // to simulate darkness at distance
+                    fill(0, map(1 / d, 0, 1, 255, 0));
+                    rect((i + 0.5) * raywidth, 0, raywidth, height / d);
+                }
             }
             pop();
         }
@@ -254,6 +310,16 @@ function keyPressed() {
     if (keyCode === SHIFT) {
         toggles.raysMethod = toggles.raysMethod == "slerp" ? "lerp" : "slerp";
     }
+    if (keyCode === 84) { // t key
+        toggles.textures = !toggles.textures;
+    }
+    if (keyCode === 80) { // p key
+        if (tex == imagetextures) {
+            tex = generateTexture(wallColor, exitColor);
+        } else {
+            tex = imagetextures;
+        }
+    }
 }
 
 /**
@@ -304,10 +370,50 @@ function createBackgroundImage(width, height, barHeight) {
 }
 
 /**
+ * Generates a wall and exit texture using perlin noise.
+ * @param {number} wall wall color (as cell data)
+ * @param {number} exit exit color (as cell data)
+ * @returns {p5.Image[]} the textures
+ */
+function generateTexture(wall, exit) {
+    let gentex = [];
+    const size = 128;
+    let img = createImage(size, size);
+    img.loadPixels();
+    let xoff = 0;
+    let xfreq = random(1, 5);
+    let yoff = 0;
+    let yfreq = random(1, 5);
+    let w = colorFromCell(wall);
+    for (let y = 0; y < img.width; y++) {
+        for (let x = 0; x < img.height; x++) {
+            let col = p5.Vector.mult(w, (noise(xoff, yoff)));
+            img.set(x, y, vecToColor(col));
+            xoff += xfreq / size;
+        }
+        yoff += yfreq / size;
+        xoff = 0;
+    }
+    img.updatePixels();
+    gentex[SOLID] = img;
+
+    img = createImage(size, size);
+    img.loadPixels();
+    for (let y = 0; y < img.width; y++) {
+        for (let x = 0; x < img.height; x++) {
+            img.set(x, y, vecToColor(colorFromCell(exit)));
+        }
+    }
+    img.updatePixels();
+    gentex[EXIT] = img;
+    return gentex;
+}
+
+/**
  * initialize system.
  */
 function createGridAndPlaceCam() {
-    grid = new Grid(gridw, gridh, makeGridColor(0, 200, 200));
+    grid = new Grid(gridw, gridh, wallColor, exitColor);
     let pos = findPlaceNotInWall(grid.data);
     cam = new Camera(pos.x, pos.y);
 }
