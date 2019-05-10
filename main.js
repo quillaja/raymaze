@@ -762,7 +762,6 @@ function generateGridWilson(w, h, wallColor) {
     let visted = [];
     while ((pos = notIn()) != undefined) {
         // 1. choose a random place in maze not IN, add to visited
-        // pos = randPosPredicate(maze, true, (x, y) => (maze[y][x] & IN) == 0);
         visted.push(pos.copy());
 
         let takingAWalk = true;
@@ -809,38 +808,7 @@ function generateGridWilson(w, h, wallColor) {
         }
         // 5. go to 1
         visted = []; // clear array
-        // pos = randPosPredicate(maze, true, (x, y) => (maze[y][x] & IN) == 0);
     }
-
-    // for testing
-    // push();
-    // background(50);
-    // translate(10, 10);
-    // stroke(255);
-    // strokeWeight(0.1);
-    // scale(20);
-    // for (let y = 0; y < mh; y++) {
-    //     for (let x = 0; x < mw; x++) {
-    //         for (const w of [T, R, B, L]) {
-    //             switch (maze[y][x] & w) {
-    //                 case T:
-    //                     line(x, y, x + 1, y);
-    //                     break;
-    //                 case R:
-    //                     line(x + 1, y, x + 1, y + 1);
-    //                     break;
-    //                 case B:
-    //                     line(x, y + 1, x + 1, y + 1);
-    //                     break;
-    //                 case L:
-    //                     line(x, y, x, y + 1);
-    //                     break;
-    //             }
-    //         }
-    //     }
-    // }
-    // noLoop();
-    // pop();
 
     // convert maze to grid by asking for a wide solid grid, then carving out
     // grid cells where according to the connected cells in the maze.
