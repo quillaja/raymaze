@@ -11,3 +11,5 @@ Uses a style of raycasting that was used in Wolfenstein 3D, as explained in [thi
 | s key | toggle statistics + shows rays in 2d view |
 | h key | hide/unhide passages in 2d view |
 | shift key | toggle between "lerp" and "slerp" for ray generation |
+| t key | toggle textures off and on |
+| p key | toggle image textures or perlin noise textures |
