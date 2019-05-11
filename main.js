@@ -48,14 +48,23 @@ const gridh = 15;
 let wallColor;
 let exitColor;
 
-/**
- * @type {p5.Image[]}
- */
-let tex;
+// textures for walls and exit.
+const textures = {
+    /**
+     * @type {p5.Image[]}
+     */
+    walls: [],
+
+    /**
+     * @type {p5.Image[]}
+     */
+    doors: [],
+};
 
 /**
  * @type {p5.Image[]}
  */
+let tex;
 let imagetextures;
 
 
@@ -93,9 +102,16 @@ function preload() {
     wallColor = makeGridColor(0, 200, 200); // set global wall color vars.
     exitColor = makeGridColor(0, 255, 0);
     tex = [];
-    imagetextures = [];
-    imagetextures[SOLID] = loadImage("brick.gif");
-    imagetextures[EXIT] = loadImage("exit.gif");
+
+    let walls = ["img/bluebrick.gif", "img/crate.gif", "img/eye.gif", "img/guts.gif", "img/redbrick.gif", "img/whitebrick.gif"];
+    let doors = ["img/door0.gif", "img/door1.gif", "img/door2.gif", "img/door3.gif", "img/door4.gif"];
+    for (const filename of walls) {
+        textures.walls.push(loadImage(filename));
+    }
+    for (const filename of doors) {
+        textures.doors.push(loadImage(filename));
+    }
+    imagetextures = pickRandomTextures();
     tex = imagetextures;
 }
 
@@ -111,7 +127,7 @@ function setup() {
     msgs.add(8, "press s to toggle statistics");
     msgs.add(8, "press space to toggle 3D or map view");
     msgs.add(8, "press arrow keys to move");
-    msgs.add(8, "find the green exit");
+    msgs.add(8, "find the exit (green or door textured)");
 }
 
 /**
@@ -410,9 +426,22 @@ function generateTexture(wall, exit) {
 }
 
 /**
+ * chooses a random texture set from "textures".
+ * @returns {p5.Image[]} the SOLID and EXIT textures
+ */
+function pickRandomTextures() {
+    let newtex = [];
+    newtex[SOLID] = random(textures.walls);
+    newtex[EXIT] = random(textures.doors);
+    return newtex;
+}
+
+/**
  * initialize system.
  */
 function createGridAndPlaceCam() {
+    imagetextures = pickRandomTextures();
+    tex = imagetextures;
     grid = new Grid(gridw, gridh, wallColor, exitColor);
     let pos = findPlaceNotInWall(grid.data);
     cam = new Camera(pos.x, pos.y);
